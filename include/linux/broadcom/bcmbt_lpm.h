@@ -13,7 +13,7 @@
 * other than the GPL, without Broadcom's express prior written consent.
 *******************************************************************************/
 
-#ifndef __ASM_BCMBT_LPM_H
+#ifndef __ASM_BCMBT_LPM_H1
 #define __ASM_BCMBT_LPM_H
 
 #include <linux/serial_core.h>
@@ -33,7 +33,7 @@ struct bcm_bt_lpm_data {
 #endif
 	int bt_wake_installed;
 	int host_wake_installed;
-  int state;
+        int state;
 };
 
 enum {
@@ -57,8 +57,8 @@ extern int brcm_init_hostwake(struct bcm_bt_lpm_platform_data *gpio_data);
 #define GPIO_UARTB_SEL (-1)
 #define GPIO_BT_CLK32K_EN (-1)
 
-/* this define electrical level of GPIO for assert/de-asserted stated. sleep logic has by default negative
-   logic */
+
+/* this define electrical level of GPIO for assert/de-asserted stated. */
 
 #ifndef BT_WAKE_ASSERT
 #define BT_WAKE_ASSERT 1
