@@ -1042,34 +1042,19 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 	unsigned long nr_lumpy_taken = 0;
 	unsigned long nr_lumpy_dirty = 0;
 	unsigned long nr_lumpy_failed = 0;
-	unsigned long nr_skipped = 0;
 	unsigned long scan;
-	bool isolate_cma = ((mode & ISOLATE_CMA) == ISOLATE_CMA);
-	struct page *page;
-	struct list_head *prev = NULL;
 
-	mode &= ~(ISOLATE_CMA);
-
-	page = lru_to_page(src);
-	for (scan = 0; scan < (nr_to_scan + nr_skipped) &&
-			!list_empty(src) &&
-			prev != src;
-			scan++, page = list_entry(prev, struct page, lru)) {
-
+	for (scan = 0; scan < nr_to_scan && !list_empty(src); scan++) {
+		struct page *page;
 		unsigned long pfn;
 		unsigned long end_pfn;
 		unsigned long page_pfn;
 		int zone_id;
 
-		prev = page->lru.prev;
+		page = lru_to_page(src);
 		prefetchw_prev_lru_page(page, src, flags);
-		VM_BUG_ON(!PageLRU(page));
 
-		if (!isolate_cma && PageCma(page)) {
-			nr_skipped++;
-			if (nr_skipped > nr_to_scan)
-				continue;
-		}
+		VM_BUG_ON(!PageLRU(page));
 
 		switch (__isolate_lru_page(page, mode, file)) {
 		case 0:
@@ -1131,8 +1116,6 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 				break;
 
 			if (__isolate_lru_page(cursor_page, mode, file) == 0) {
-				if (prev == &cursor_page->lru)
-					prev = cursor_page->lru.prev;
 				list_move(&cursor_page->lru, dst);
 				mem_cgroup_del_lru(cursor_page);
 				nr_taken += hpage_nr_pages(page);
@@ -1159,8 +1142,6 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 				break;
 			}
 		}
-
-
 
 		/* If we break out of the loop above, lumpy reclaim failed */
 		if (pfn < end_pfn)
@@ -1211,11 +1192,8 @@ static unsigned long clear_active_flags(struct list_head *page_list,
 			ClearPageActive(page);
 			nr_active += numpages;
 		}
-		if (count) {
+		if (count)
 			count[lru] += numpages;
-			if (PageCma(page))
-				count[LRU_CMA_BASE + lru] += numpages;
-		}
 	}
 
 	return nr_active;
@@ -1351,7 +1329,7 @@ static noinline_for_stack void update_isolated_counts(struct zone *zone,
 					struct list_head *isolated_list)
 {
 	unsigned long nr_active;
-	unsigned int count[NR_LRU_LISTS_CMA] = { 0, };
+	unsigned int count[NR_LRU_LISTS] = { 0, };
 	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(zone, sc);
 
 	nr_active = clear_active_flags(isolated_list, count);
@@ -1365,16 +1343,6 @@ static noinline_for_stack void update_isolated_counts(struct zone *zone,
 			      -count[LRU_ACTIVE_ANON]);
 	__mod_zone_page_state(zone, NR_INACTIVE_ANON,
 			      -count[LRU_INACTIVE_ANON]);
-	if (NR_LRU_LISTS_CMA != NR_LRU_LISTS) {
-		__mod_zone_page_state(zone, NR_CMA_ACTIVE_FILE,
-			      -count[LRU_CMA_ACTIVE_FILE]);
-		__mod_zone_page_state(zone, NR_CMA_INACTIVE_FILE,
-			      -count[LRU_CMA_INACTIVE_FILE]);
-		__mod_zone_page_state(zone, NR_CMA_ACTIVE_ANON,
-			      -count[LRU_CMA_ACTIVE_ANON]);
-		__mod_zone_page_state(zone, NR_CMA_INACTIVE_ANON,
-			      -count[LRU_CMA_INACTIVE_ANON]);
-	}
 
 	*nr_anon = count[LRU_ACTIVE_ANON] + count[LRU_INACTIVE_ANON];
 	*nr_file = count[LRU_ACTIVE_FILE] + count[LRU_INACTIVE_FILE];
@@ -1440,7 +1408,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct zone *zone,
 	unsigned long nr_taken;
 	unsigned long nr_anon;
 	unsigned long nr_file;
-	int mode;
 
 	while (unlikely(too_many_isolated(zone, file, sc))) {
 		congestion_wait(BLK_RW_ASYNC, HZ/10);
@@ -1451,19 +1418,15 @@ shrink_inactive_list(unsigned long nr_to_scan, struct zone *zone,
 	}
 
 	set_reclaim_mode(priority, sc, false);
-	mode = sc->reclaim_mode & RECLAIM_MODE_LUMPYRECLAIM ?
-				ISOLATE_BOTH : ISOLATE_INACTIVE;
-
-	if (sc->gfp_mask & __GFP_MOVABLE)
-		mode |= ISOLATE_CMA;
-
 	lru_add_drain();
 	spin_lock_irq(&zone->lru_lock);
 
 	if (scanning_global_lru(sc)) {
 		nr_taken = isolate_pages_global(nr_to_scan,
 			&page_list, &nr_scanned, sc->order,
-			mode, zone, 0, file);
+			sc->reclaim_mode & RECLAIM_MODE_LUMPYRECLAIM ?
+					ISOLATE_BOTH : ISOLATE_INACTIVE,
+			zone, 0, file);
 		zone->pages_scanned += nr_scanned;
 		if (current_is_kswapd())
 			__count_zone_vm_events(PGSCAN_KSWAPD, zone,
@@ -1474,7 +1437,9 @@ shrink_inactive_list(unsigned long nr_to_scan, struct zone *zone,
 	} else {
 		nr_taken = mem_cgroup_isolate_pages(nr_to_scan,
 			&page_list, &nr_scanned, sc->order,
-			mode, zone, sc->mem_cgroup,
+			sc->reclaim_mode & RECLAIM_MODE_LUMPYRECLAIM ?
+					ISOLATE_BOTH : ISOLATE_INACTIVE,
+			zone, sc->mem_cgroup,
 			0, file);
 		/*
 		 * mem_cgroup_isolate_pages() keeps track of
@@ -1537,9 +1502,6 @@ static void move_active_pages_to_lru(struct zone *zone,
 				     enum lru_list lru)
 {
 	unsigned long pgmoved = 0;
-#ifdef CONFIG_CMA
-	unsigned long pgmoved_cma = 0;
-#endif
 	struct pagevec pvec;
 	struct page *page;
 
@@ -1554,10 +1516,7 @@ static void move_active_pages_to_lru(struct zone *zone,
 		list_move(&page->lru, &zone->lru[lru].list);
 		mem_cgroup_add_lru_list(page, lru);
 		pgmoved += hpage_nr_pages(page);
-#ifdef CONFIG_CMA
-		if (PageCma(page))
-			pgmoved_cma += hpage_nr_pages(page);
-#endif
+
 		if (!pagevec_add(&pvec, page) || list_empty(list)) {
 			spin_unlock_irq(&zone->lru_lock);
 			if (buffer_heads_over_limit)
@@ -1567,34 +1526,9 @@ static void move_active_pages_to_lru(struct zone *zone,
 		}
 	}
 	__mod_zone_page_state(zone, NR_LRU_BASE + lru, pgmoved);
-#ifdef CONFIG_CMA
-	__mod_zone_page_state(zone, NR_LRU_CMA_BASE + lru, pgmoved_cma);
-#endif
 	if (!is_active_lru(lru))
 		__count_vm_events(PGDEACTIVATE, pgmoved);
 }
-
-#ifdef CONFIG_CMA
-static unsigned long count_cma_pages(struct list_head *head)
-{
-	unsigned long nr_cma = 0;
-	struct list_head *itr;
-	struct page *p;
-
-	list_for_each(itr, head) {
-		p = list_entry(itr, struct page, lru);
-		if (PageCma(p))
-			nr_cma++;
-	}
-
-	return nr_cma;
-}
-#else
-static unsigned long count_cma_pages(struct list_head *head)
-{
-	return 0;
-}
-#endif
 
 static void shrink_active_list(unsigned long nr_pages, struct zone *zone,
 			struct scan_control *sc, int priority, int file)
@@ -1608,24 +1542,19 @@ static void shrink_active_list(unsigned long nr_pages, struct zone *zone,
 	struct page *page;
 	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(zone, sc);
 	unsigned long nr_rotated = 0;
-	unsigned long nr_cma_taken = 0;
-	int mode = ISOLATE_ACTIVE;
-
-	if (sc->gfp_mask & __GFP_MOVABLE)
-		mode |= ISOLATE_CMA;
 
 	lru_add_drain();
 	spin_lock_irq(&zone->lru_lock);
 	if (scanning_global_lru(sc)) {
 		nr_taken = isolate_pages_global(nr_pages, &l_hold,
 						&pgscanned, sc->order,
-						mode, zone,
+						ISOLATE_ACTIVE, zone,
 						1, file);
 		zone->pages_scanned += pgscanned;
 	} else {
 		nr_taken = mem_cgroup_isolate_pages(nr_pages, &l_hold,
 						&pgscanned, sc->order,
-						mode, zone,
+						ISOLATE_ACTIVE, zone,
 						sc->mem_cgroup, 1, file);
 		/*
 		 * mem_cgroup_isolate_pages() keeps track of
@@ -1636,15 +1565,10 @@ static void shrink_active_list(unsigned long nr_pages, struct zone *zone,
 	reclaim_stat->recent_scanned[file] += nr_taken;
 
 	__count_zone_vm_events(PGREFILL, zone, pgscanned);
-	nr_cma_taken = count_cma_pages(&l_hold);
-
-	if (file) {
+	if (file)
 		__mod_zone_page_state(zone, NR_ACTIVE_FILE, -nr_taken);
-		__mod_zone_page_state(zone, NR_CMA_ACTIVE_FILE, -nr_cma_taken);
-	} else {
+	else
 		__mod_zone_page_state(zone, NR_ACTIVE_ANON, -nr_taken);
-		__mod_zone_page_state(zone, NR_CMA_ACTIVE_ANON, -nr_cma_taken);
-	}
 	__mod_zone_page_state(zone, NR_ISOLATED_ANON + file, nr_taken);
 	spin_unlock_irq(&zone->lru_lock);
 
@@ -1713,22 +1637,6 @@ static int inactive_anon_is_low_global(struct zone *zone)
 	return 0;
 }
 
-#ifdef CONFIG_CMA
-static int inactive_unmovable_anon_is_low_global(struct zone *zone)
-{
-	unsigned long active, inactive;
-
-	active = zone_page_state(zone, NR_ACTIVE_ANON) -
-			zone_page_state(zone, NR_CMA_ACTIVE_ANON);
-	inactive = zone_page_state(zone, NR_INACTIVE_ANON) -
-			zone_page_state(zone, NR_CMA_INACTIVE_ANON);
-
-	if (inactive * zone->inactive_ratio < active)
-		return 1;
-
-	return 0;
-}
-#endif
 /**
  * inactive_anon_is_low - check if anonymous pages need to be deactivated
  * @zone: zone to check
@@ -1748,16 +1656,10 @@ static int inactive_anon_is_low(struct zone *zone, struct scan_control *sc)
 	if (!total_swap_pages)
 		return 0;
 
-	if (scanning_global_lru(sc)) {
-#ifdef CONFIG_CMA
-		if (!(sc->gfp_mask & __GFP_MOVABLE))
-			low = inactive_unmovable_anon_is_low_global(zone);
-		else
-#endif
-			low = inactive_anon_is_low_global(zone);
-	} else {
+	if (scanning_global_lru(sc))
+		low = inactive_anon_is_low_global(zone);
+	else
 		low = mem_cgroup_inactive_anon_is_low(sc->mem_cgroup);
-	}
 	return low;
 }
 #else
@@ -1778,20 +1680,6 @@ static int inactive_file_is_low_global(struct zone *zone)
 	return (active > inactive);
 }
 
-#ifdef CONFIG_CMA
-static int inactive_unmovable_file_is_low_global(struct zone *zone)
-{
-	unsigned long active, inactive;
-
-	active = zone_page_state(zone, NR_ACTIVE_FILE) -
-			zone_page_state(zone, NR_CMA_ACTIVE_FILE);
-	inactive = zone_page_state(zone, NR_INACTIVE_FILE) -
-			zone_page_state(zone, NR_CMA_INACTIVE_FILE);
-
-	return (active > inactive);
-}
-#endif
-
 /**
  * inactive_file_is_low - check if file pages need to be deactivated
  * @zone: zone to check
@@ -1811,16 +1699,10 @@ static int inactive_file_is_low(struct zone *zone, struct scan_control *sc)
 {
 	int low;
 
-	if (scanning_global_lru(sc)) {
-#ifdef CONFIG_CMA
-		if (!(sc->gfp_mask & __GFP_MOVABLE))
-			low = inactive_unmovable_file_is_low_global(zone);
-		else
-#endif
-			low = inactive_file_is_low_global(zone);
-	} else {
+	if (scanning_global_lru(sc))
+		low = inactive_file_is_low_global(zone);
+	else
 		low = mem_cgroup_inactive_file_is_low(sc->mem_cgroup);
-	}
 	return low;
 }
 
@@ -1896,8 +1778,6 @@ static void get_scan_count(struct zone *zone, struct scan_control *sc,
 
 	if (scanning_global_lru(sc)) {
 		free  = zone_page_state(zone, NR_FREE_PAGES);
-		if (!(sc->gfp_mask & __GFP_MOVABLE))
-			free -= zone_page_state(zone, NR_FREE_CMA_PAGES);
 		/* If we have very few page cache pages,
 		   force-scan anon pages. */
 		if (unlikely(file + free <= high_wmark_pages(zone))) {
@@ -1965,7 +1845,6 @@ out:
 		unsigned long scan;
 
 		scan = zone_nr_lru_pages(zone, sc, l);
-
 		if (priority || noswap) {
 			scan >>= priority;
 			scan = div64_u64(scan * fraction[file], denominator);
@@ -2472,7 +2351,7 @@ static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
 		}
 
 		if (!zone_watermark_ok_safe(zone, order, high_wmark_pages(zone),
-							i, ALLOC_UNMOVABLE))
+							i, 0))
 			all_zones_ok = false;
 		else
 			balanced += zone->present_pages;
@@ -2577,8 +2456,7 @@ loop_again:
 							&sc, priority, 0);
 
 			if (!zone_watermark_ok_safe(zone, order,
-						high_wmark_pages(zone), 0,
-						ALLOC_UNMOVABLE)) {
+					high_wmark_pages(zone), 0, 0)) {
 				end_zone = i;
 				break;
 			}
@@ -2638,7 +2516,7 @@ loop_again:
 				KSWAPD_ZONE_BALANCE_GAP_RATIO);
 			if (!zone_watermark_ok_safe(zone, order,
 					high_wmark_pages(zone) + balance_gap,
-					end_zone, ALLOC_UNMOVABLE)) {
+					end_zone, 0)) {
 				shrink_zone(priority, zone, &sc);
 
 				reclaim_state->reclaimed_slab = 0;
@@ -2666,8 +2544,7 @@ loop_again:
 			}
 
 			if (!zone_watermark_ok_safe(zone, order,
-					high_wmark_pages(zone),
-					end_zone, ALLOC_UNMOVABLE)) {
+					high_wmark_pages(zone), end_zone, 0)) {
 				all_zones_ok = 0;
 				/*
 				 * We are still under min water mark.  This
@@ -2675,8 +2552,7 @@ loop_again:
 				 * failure risk. Hurry up!
 				 */
 				if (!zone_watermark_ok_safe(zone, order,
-					    min_wmark_pages(zone),
-					    end_zone, ALLOC_UNMOVABLE))
+					    min_wmark_pages(zone), end_zone, 0))
 					has_under_min_watermark_zone = 1;
 			} else {
 				/*
@@ -2766,8 +2642,7 @@ out:
 
 			/* Confirm the zone is balanced for order-0 */
 			if (!zone_watermark_ok(zone, 0,
-					high_wmark_pages(zone), 0,
-					ALLOC_UNMOVABLE)) {
+					high_wmark_pages(zone), 0, 0)) {
 				order = sc.order = 0;
 				goto loop_again;
 			}
@@ -2944,8 +2819,7 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 	}
 	if (!waitqueue_active(&pgdat->kswapd_wait))
 		return;
-	if (zone_watermark_ok_safe(zone, order, low_wmark_pages(zone),
-					0, ALLOC_UNMOVABLE))
+	if (zone_watermark_ok_safe(zone, order, low_wmark_pages(zone), 0, 0))
 		return;
 
 	trace_mm_vmscan_wakeup_kswapd(pgdat->node_id, zone_idx(zone), order);

@@ -20,6 +20,9 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
+#if defined(CONFIG_MAP_SDMA)
+#include <mach/sdma.h>
+#endif
 
 
 #include "vchiq.h"
@@ -116,6 +119,9 @@ vc_watchdog_vchiq_callback(VCHIQ_REASON_T reason,
 static int
 vc_watchdog_thread_func(void *v)
 {
+#if defined(CONFIG_MAP_SDMA)
+	int ch = 0;
+#endif
 	while (1) {
 		long rc;
 		unsigned long msg = WDOG_PING_MSG;
@@ -167,8 +173,13 @@ vc_watchdog_thread_func(void *v)
 			LOG_ERR("%s VideoCore Watchdog timed out!! (%d)",
 				__func__, vc_wdog_state->failed_pings);
 			if (vc_wdog_state->failed_pings >=
-						WATCHDOG_NO_RESPONSE_COUNT)
+						WATCHDOG_NO_RESPONSE_COUNT) {
+#if defined(CONFIG_MAP_SDMA)
+			for (; ch <= SDMA_NUM_CHANNELS; ch++)
+				sdma_dump_debug_info(ch);
+#endif
 			BUG();
+			}
 		} else if (rc < 0)
 			LOG_ERR("%s: Interrupted waiting for ping", __func__);
 		else {

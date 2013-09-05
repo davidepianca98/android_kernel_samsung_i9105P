@@ -27,10 +27,6 @@ __add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list l,
 {
 	list_add(&page->lru, head);
 	__mod_zone_page_state(zone, NR_LRU_BASE + l, hpage_nr_pages(page));
-	if (PageCma(page))
-		__mod_zone_page_state(zone, NR_LRU_CMA_BASE + l,
-				hpage_nr_pages(page));
-
 	mem_cgroup_add_lru_list(page, l);
 }
 
@@ -45,9 +41,6 @@ del_page_from_lru_list(struct zone *zone, struct page *page, enum lru_list l)
 {
 	list_del(&page->lru);
 	__mod_zone_page_state(zone, NR_LRU_BASE + l, -hpage_nr_pages(page));
-	if (PageCma(page))
-		__mod_zone_page_state(zone, NR_LRU_CMA_BASE + l,
-						-hpage_nr_pages(page));
 	mem_cgroup_del_lru_list(page, l);
 }
 
@@ -83,9 +76,6 @@ del_page_from_lru(struct zone *zone, struct page *page)
 		}
 	}
 	__mod_zone_page_state(zone, NR_LRU_BASE + l, -hpage_nr_pages(page));
-	if (PageCma(page))
-		__mod_zone_page_state(zone, NR_LRU_CMA_BASE + l,
-						-hpage_nr_pages(page));
 	mem_cgroup_del_lru_list(page, l);
 }
 

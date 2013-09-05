@@ -253,103 +253,6 @@ static void set_pageblock_migratetype(struct page *page, int migratetype)
 
 bool oom_killer_disabled __read_mostly;
 
-#ifdef CMA_NUMBERS_VERIFICATION
-static int verify_cma(int takelock)
-{
-	pg_data_t *pgdat = NULL;
-	unsigned long flags;
-	unsigned long zone_cma_nr_free = 0;
-	unsigned long nr_free_cma_pages;
-	int ret = 0;
-	int order;
-	struct page *page;
-
-	for (pgdat = first_online_pgdat();
-		pgdat;
-		pgdat = next_online_pgdat(pgdat)) {
-
-		struct zone *zone;
-
-		if (!node_state(pgdat->node_id, N_HIGH_MEMORY))
-			continue;
-
-		for (zone = pgdat->node_zones;
-			zone - pgdat->node_zones < MAX_NR_ZONES;
-			++zone) {
-
-			unsigned long zone_cmafreelist = 0;
-
-			if (!populated_zone(zone))
-				continue;
-
-			if (takelock)
-				spin_lock_irqsave(&zone->lock, flags);
-			/* compare here */
-			for (order = 0; order < MAX_ORDER; ++order) {
-				struct free_area *area;
-				struct list_head *curr;
-
-				area = &(zone->free_area[order]);
-				list_for_each(curr,
-						&area->free_list[MIGRATE_CMA])
-					zone_cmafreelist += (1 << order);
-
-			}
-
-			/* compare here */
-			for (order = 0; order < MAX_ORDER; ++order) {
-				struct free_area *area;
-				struct list_head *curr;
-
-				area = &(zone->free_area[order]);
-				list_for_each(curr,
-					&area->free_list[MIGRATE_ISOLATE]) {
-					page = list_entry(curr,
-							struct page, lru);
-					if (PageCma(page))
-						zone_cmafreelist +=
-							(1 << order);
-				}
-
-			}
-
-			for (order = 0; order < MAX_ORDER; ++order)
-				zone_cma_nr_free +=
-					zone->nr_cma_free[order] * (1 << order);
-
-			nr_free_cma_pages =
-				zone_page_state_snapshot(zone,
-							NR_FREE_CMA_PAGES);
-
-			if ((zone_cmafreelist != zone_cma_nr_free) ||
-				(zone_cmafreelist != nr_free_cma_pages)) {
-				printk(KERN_ERR"Zone %s cma_freelist :"
-						" %lu per_order_cma_nr_free :"
-						" %lu vmstat_free_cma_pages :"
-						" %lu\n",
-						zone->name, zone_cmafreelist,
-						zone_cma_nr_free,
-						nr_free_cma_pages);
-				ret = 1;
-			}
-
-			if (takelock)
-				spin_unlock_irqrestore(&zone->lock, flags);
-		}
-	}
-
-	return ret;
-}
-
-#else
-
-static inline int verify_cma(int takelock)
-{
-	return 0;
-}
-
-#endif /* !CMA_NUMBERS_VERIFICATION */
-
 #ifdef CONFIG_DEBUG_VM
 static int page_outside_zone_boundaries(struct zone *zone, struct page *page)
 {
@@ -633,8 +536,6 @@ static inline void __free_one_page(struct page *page,
 		/* Our buddy is free, merge with it and move up one order. */
 		list_del(&buddy->lru);
 		zone->free_area[order].nr_free--;
-		if (PageCma(page))
-			zone->nr_cma_free[order]--;
 		rmv_page_order(buddy);
 		combined_idx = buddy_idx & page_idx;
 		page = page + (combined_idx - page_idx);
@@ -666,9 +567,6 @@ static inline void __free_one_page(struct page *page,
 
 	list_add(&page->lru, &zone->free_area[order].free_list[migratetype]);
 out:
-	if (PageCma(page))
-		zone->nr_cma_free[order]++;
-
 	zone->free_area[order].nr_free++;
 }
 
@@ -760,10 +658,6 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 
 			/* MIGRATE_MOVABLE list may include MIGRATE_RESERVEs */
 			__free_one_page(page, zone, 0, page_private(page));
-			if (PageCma(page)) {
-				__mod_zone_page_state(zone,
-						NR_FREE_CMA_PAGES, 1);
-			}
 			trace_mm_page_pcpu_drain(page, 0, page_private(page));
 		} while (--to_free && --batch_free && !list_empty(list));
 	}
@@ -780,11 +674,6 @@ static void free_one_page(struct zone *zone, struct page *page, int order,
 
 	__free_one_page(page, zone, order, migratetype);
 	__mod_zone_page_state(zone, NR_FREE_PAGES, 1 << order);
-	if (PageCma(page)) {
-		__mod_zone_page_state(zone, NR_FREE_CMA_PAGES,
-						1 << order);
-		WARN_ON(verify_cma(0));
-	}
 	spin_unlock(&zone->lock);
 }
 
@@ -869,8 +758,6 @@ void __init init_cma_reserved_pageblock(struct page *page)
 	do {
 		__ClearPageReserved(p);
 		set_page_count(p, 0);
-		/* This flag is read-only from now onwards */
-		SetPageCma(p);
 	} while (++p, --i);
 
 	set_page_refcounted(page);
@@ -908,8 +795,6 @@ static inline void expand(struct zone *zone, struct page *page,
 		list_add(&page[size].lru, &area->free_list[migratetype]);
 		area->nr_free++;
 		set_page_order(&page[size], high);
-		if (PageCma(page))
-			zone->nr_cma_free[high]++;
 	}
 }
 
@@ -977,8 +862,6 @@ struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
 		list_del(&page->lru);
 		rmv_page_order(page);
 		area->nr_free--;
-		if (PageCma(page))
-			zone->nr_cma_free[current_order]--;
 		expand(zone, page, order, current_order, area, migratetype);
 		return page;
 	}
@@ -1051,10 +934,8 @@ static int move_freepages(struct zone *zone,
 			  &zone->free_area[order].free_list[migratetype]);
 		page += 1 << order;
 		pages_moved += 1 << order;
-		if (PageCma(page))
-			WARN_ON(verify_cma(0));
-
 	}
+
 	return pages_moved;
 }
 
@@ -1132,9 +1013,6 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 					struct page, lru);
 			area->nr_free--;
 
-			if (PageCma(page))
-				zone->nr_cma_free[real_order]--;
-
 			/*
 			 * If breaking a large block of pages, move all free
 			 * pages to the preferred allocation list. If falling
@@ -1153,7 +1031,7 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 			     page_group_by_mobility_disabled)) {
 				int pages;
 				pages = move_freepages_block(zone, page,
-							start_migratetype);
+								start_migratetype);
 
 				/* Claim the whole block if over half of it is free */
 				if (pages >= (1 << (pageblock_order-1)) ||
@@ -1212,13 +1090,6 @@ retry_reserve:
 			migratetype = MIGRATE_RESERVE;
 			goto retry_reserve;
 		}
-
-	}
-
-	if (page && PageCma(page)) {
-		__mod_zone_page_state(zone, NR_FREE_CMA_PAGES,
-				-(1 << order));
-		WARN_ON(verify_cma(0));
 	}
 
 	trace_mm_page_alloc_zone_locked(page, order, migratetype);
@@ -1485,13 +1356,6 @@ int split_free_page(struct page *page)
 	rmv_page_order(page);
 	__mod_zone_page_state(zone, NR_FREE_PAGES, -(1UL << order));
 
-	if (PageCma(page)) {
-		zone->nr_cma_free[order]--;
-		__mod_zone_page_state(zone, NR_FREE_CMA_PAGES,
-						-(1UL << order));
-		WARN_ON(verify_cma(0));
-	}
-
 	/* Split into individual pages */
 	set_page_refcounted(page);
 	split_page(page, order);
@@ -1707,41 +1571,18 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 	if (alloc_flags & ALLOC_HARDER)
 		min -= min / 4;
 
-	if (alloc_flags & ALLOC_UNMOVABLE) {
-		if ((free_pages - zone_page_state(z, NR_FREE_CMA_PAGES)) <=
-				(min + z->lowmem_reserve[classzone_idx]))
-			return false;
-	}
-
 	if (free_pages <= min + z->lowmem_reserve[classzone_idx])
 		return false;
-	for (o = 0; o < MAX_ORDER; o++) {
-		if (o < order) {
-			/* At the next order, this order's
-			 * pages become unavailable
-			 */
-			free_pages -= z->free_area[o].nr_free << o;
+	for (o = 0; o < order; o++) {
+		/* At the next order, this order's pages become unavailable */
+		free_pages -= z->free_area[o].nr_free << o;
 
-			/* Require fewer higher order pages to be free */
-			min >>= min_free_order_shift;
+		/* Require fewer higher order pages to be free */
+		min >>= min_free_order_shift;
 
-			if (free_pages <= min)
-				return false;
-		}
-#ifdef CONFIG_CMA
-		else if (alloc_flags & ALLOC_UNMOVABLE) {
-			/* If cma is enabled, ignore free pages from
-			 * MIGRATE_CMA list for watermark checks
-			 */
-			free_pages -= (z->nr_cma_free[o] << o);
-			if (free_pages <= min)
-				return false;
-		}
-#else
-		break;
-#endif
+		if (free_pages <= min)
+			return false;
 	}
-
 	return true;
 }
 
@@ -1941,8 +1782,6 @@ zonelist_scan:
 			int ret;
 
 			mark = zone->watermark[alloc_flags & ALLOC_WMARK_MASK];
-			if (!(gfp_mask & __GFP_MOVABLE))
-				alloc_flags |= ALLOC_UNMOVABLE;
 			if (zone_watermark_ok(zone, order, mark,
 				    classzone_idx, alloc_flags))
 				goto try_this_zone;
@@ -2815,18 +2654,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_SHOW_FREE_LISTS
-static char * const mtype_names[MIGRATE_TYPES] = {
-	"Unmovable",
-	"Reclaimable",
-	"Movable",
-	"Reserve",
-#ifdef CONFIG_CMA
-	"CMA",
-#endif
-	"Isolate",
-};
-#endif /* CONFIG_SHOW_FREE_LISTS */
 #define K(x) ((x) << (PAGE_SHIFT-10))
 
 /*
@@ -2840,9 +2667,6 @@ void show_free_areas(unsigned int filter)
 {
 	int cpu;
 	struct zone *zone;
-#ifdef CONFIG_SHOW_FREE_LISTS
-	int mtype;
-#endif /* CONFIG_SHOW_FREE_LISTS */
 
 	for_each_populated_zone(zone) {
 		if (skip_free_areas_node(filter, zone_to_nid(zone)))
@@ -2967,27 +2791,6 @@ void show_free_areas(unsigned int filter)
 			nr[order] = zone->free_area[order].nr_free;
 			total += nr[order] << order;
 		}
-#ifdef CONFIG_SHOW_FREE_LISTS
-		printk("%-43s ", "Free pages count per migrate type at order");
-		for (order = 0; order < MAX_ORDER; ++order)
-			printk("%6lu ", order);
-		printk("\n");
-		for (mtype = 0; mtype < MIGRATE_TYPES; mtype++) {
-			printk("                   zone %8s, type %12s ",
-				zone->name, mtype_names[mtype]);
-			for (order = 0; order < MAX_ORDER; order++) {
-				unsigned long freecount = 0;
-				struct free_area *area;
-				struct list_head *curr;
-				area = &(zone->free_area[order]);
-
-				list_for_each(curr, &area->free_list[mtype])
-					freecount++;
-				printk("%6lu ", freecount);
-			}
-			printk("\n");
-		}
-#endif /* CONFIG_SHOW_FREE_LISTS */
 		spin_unlock_irqrestore(&zone->lock, flags);
 		for (order = 0; order < MAX_ORDER; order++)
 			printk("%lu*%lukB ", nr[order], K(1UL) << order);
@@ -6069,9 +5872,14 @@ static int __reclaim_pages(struct zone *zone, gfp_t gfp_mask, int count)
 	int order = 1;
 
 
+	/*
+	 * Increase level of watermarks to force kswapd do his job
+	 * to stabilise at new watermark level.
+	 */
+	__update_cma_watermarks(zone, count);
+
 	/* Obey watermarks as if the page was being allocated */
-	while (!fatal_signal_pending(current) &&
-		!zone_watermark_ok(zone, 0, low_wmark_pages(zone), 0, 0)) {
+	while (!zone_watermark_ok(zone, 0, low_wmark_pages(zone), 0, 0)) {
 		wake_all_kswapd(order, zonelist, high_zoneidx, zone_idx(zone));
 
 		did_some_progress = __perform_reclaim(gfp_mask, order, zonelist,
@@ -6081,6 +5889,9 @@ static int __reclaim_pages(struct zone *zone, gfp_t gfp_mask, int count)
 			out_of_memory(zonelist, gfp_mask, order, NULL);
 		}
 	}
+
+	/* Restore original watermark levels. */
+	__update_cma_watermarks(zone, -count);
 
 	return count;
 }
@@ -6177,6 +5988,8 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 
 	/* Make sure the range is really isolated. */
 	if (test_pages_isolated(outer_start, end)) {
+		pr_warn("alloc_contig_range test_pages_isolated(%lx, %lx) failed\n",
+		       outer_start, end);
 		ret = -EBUSY;
 		goto done;
 	}

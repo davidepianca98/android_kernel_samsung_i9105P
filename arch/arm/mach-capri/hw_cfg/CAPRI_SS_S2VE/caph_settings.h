@@ -23,7 +23,6 @@
 		{ \
 			.ihf_ext_amp_gpio = 95, \
 			.dock_aud_route_gpio = 93, \
-			.mic_sel_aud_route_gpio = 186, \
 		} \
 	} \
 };

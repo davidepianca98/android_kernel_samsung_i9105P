@@ -345,7 +345,7 @@ int alarm_set_alarm(char* alarm_data)
 	alm.time.tm_mon -= 1;
 	alm.time.tm_year -= 1900;
 
-	ret = rtc_set_alarm(alarm_rtc_dev, &alm);
+	ret = rtc_set_alarm_boot(alarm_rtc_dev, &alm);
 
 	return ret;
 }

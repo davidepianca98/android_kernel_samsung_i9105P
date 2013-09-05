@@ -2017,9 +2017,9 @@ int ld9040_reset(struct lcd_device *ld)
 	}
 	gpio_direction_output(AMOLED_RESET, 1);
 	gpio_set_value(AMOLED_RESET, 1);
-	msleep(5);
+	msleep(1);
 	gpio_set_value(AMOLED_RESET, 0);
-	msleep(18);
+	msleep(1);
 	gpio_set_value(AMOLED_RESET, 1);
 	msleep(10);
 	gpio_free(AMOLED_RESET);

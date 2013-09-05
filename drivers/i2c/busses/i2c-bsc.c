@@ -1169,9 +1169,6 @@ static int bsc_xfer(struct i2c_adapter *adapter, struct i2c_msg msgs[], int num)
 #endif
 
 	down(&dev->dev_lock);
-#ifdef CONFIG_ARCH_CAPRI
-	pause_nohz();
-#endif
 	bsc_enable_clk(dev);
 	bsc_enable_pad_output((uint32_t)dev->virt_base, true);
 	hw_cfg = (struct bsc_adap_cfg *)dev->device->platform_data;
@@ -1190,10 +1187,7 @@ static int bsc_xfer(struct i2c_adapter *adapter, struct i2c_msg msgs[], int num)
 		if (rc) {
 			bsc_enable_pad_output((uint32_t)dev->virt_base, false);
 			bsc_disable_clk(dev);
-#ifdef CONFIG_ARCH_CAPRI
-			resume_nohz();
-#endif
-			up(&dev->dev_lock);
+			down(&dev->dev_lock);
 			return rc;
 		} else {
 			rel_hw_sem = true;
@@ -1316,9 +1310,6 @@ static int bsc_xfer(struct i2c_adapter *adapter, struct i2c_msg msgs[], int num)
 	if (rel_hw_sem)
 		pwr_mgr_pm_i2c_sem_unlock();
 #endif
-#ifdef CONFIG_ARCH_CAPRI
-	resume_nohz();
-#endif
 	up(&dev->dev_lock);
 	return (rc < 0) ? rc : num;
 
@@ -1351,9 +1342,6 @@ hs_ret:
 #ifdef CONFIG_KONA_PMU_BSC_USE_PMGR_HW_SEM
 	if (rel_hw_sem)
 		pwr_mgr_pm_i2c_sem_unlock();
-#endif
-#ifdef CONFIG_ARCH_CAPRI
-	resume_nohz();
 #endif
 	up(&dev->dev_lock);
 	return rc;

@@ -174,20 +174,19 @@ static struct bcmpmu_temp_map batt_temp_map[] = {
 	{900, -350},			/* -35 C */
 	{869, -300},            /* -30 */
 	{754, -200},			/* -20 */
-	{709, -150},			/* -15 */
-	{644, -100},                    /* -10 */
-	{577, -50},						/* -5 */
-	{510,   0},                    /* 0   */
-	{445,   50},                    /* 0   */
-	{383,  100},                    /* 10  */
-	{329,  150},                    /* 15  */
-	{279,  200},                    /* 20  */
-	{234,  250},                    /* 25  */
-	{197,  300},                    /* 30  */
-	{164,  350},                    /* 30  */
+	{639, -100},                    /* -10 */
+	{573, -50},			/* -5 */
+	{506,   0},                    /* 0   */
+	{442,   50},                    /* 0   */
+	{380,  100},                    /* 10  */
+	{323,  150},                    /* 10  */
+	{267,  200},                    /* 20  */
+	{229,  250},                    /* 25  */
+	{194,  300},                    /* 30  */
+	{163,  350},                    /* 30  */
 	{137,  400},                    /* 40  */
-	{115,  450},                    /* 40  */
-	{96 ,  500},                    /* 50  */
+	{114,  450},                    /* 40  */
+	{97 ,  500},                    /* 50  */
 	{81 ,  550},                    /* 50  */
 	{68 ,  600},                    /* 60  */
 	{57 ,  650},                    /* 65  */
@@ -668,10 +667,10 @@ struct bcmpmu_regulator_init_data bcm59056_regulators[BCMPMU_REGULATOR_MAX] = {
 		BCMPMU_REGULATOR_MICLDO, &bcm59056_micldo_data, 0xAA, 0
 	},
 	[BCMPMU_REGULATOR_MMCLDO1] = {
-		BCMPMU_REGULATOR_MMCLDO1, &bcm59056_mmcldo1_data, 0x02, 1
+		BCMPMU_REGULATOR_MMCLDO1, &bcm59056_mmcldo1_data, 0x02, BCMPMU_REGL_OFF_IN_DSM
 	},
 	[BCMPMU_REGULATOR_MMCLDO2] = {
-		BCMPMU_REGULATOR_MMCLDO2, &bcm59056_mmcldo2_data, 0xff, 0
+		BCMPMU_REGULATOR_MMCLDO2, &bcm59056_mmcldo2_data, 0xff, BCMPMU_REGL_LPM_IN_DSM
 	},
 	[BCMPMU_REGULATOR_SIMLDO] = {
 		BCMPMU_REGULATOR_SIMLDO, &bcm59056_simldo_data, 0xAA, BCMPMU_REGL_LPM_IN_DSM

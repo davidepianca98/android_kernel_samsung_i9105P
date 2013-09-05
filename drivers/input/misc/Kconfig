@@ -547,8 +547,4 @@ config FIVE_PIN_EARJACK_SUPPORT
 	tristate "For 5PIN earjack"
 	default n
 
-config SS_NEW_EARPHONE_SPEC
-	default n
-	tristate "For Samsung new earphone spec"
-
 endif

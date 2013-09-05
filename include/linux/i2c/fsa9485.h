@@ -24,8 +24,7 @@
 
 enum {
 	FSA9485_DETACHED,
-	FSA9485_ATTACHED,
-	FSA9485_ACCESSORY,
+	FSA9485_ATTACHED
 };
 
 enum {
@@ -45,7 +44,7 @@ struct fsa9485_platform_data {
 	void (*ovp_cb) (bool attached);
 	void (*usb_cb) (bool attached);
 	void (*uart_cb) (bool attached);
-	void (*charger_cb) (unsigned int attached);
+	void (*charger_cb) (bool attached);
 	void (*jig_cb) (bool attached);
 	void (*mhl_cb) (bool attached);
 	void (*reset_cb) (void);

@@ -668,6 +668,7 @@ int bcmsdh_register_oob_intr(void * dhdp)
 			"bcmsdh_sdmmc", NULL);
 		if (error)
 			return -ENODEV;
+
 #if defined(CONFIG_ARCH_RHEA) || defined(CONFIG_ARCH_CAPRI)
 		if (device_may_wakeup(sdhcinfo->dev)) {
 #endif

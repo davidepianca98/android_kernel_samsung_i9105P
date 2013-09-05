@@ -26,6 +26,10 @@
 #ifdef CONFIG_KONA_PROFILER
 #include <plat/profiler.h>
 #endif
+
+#include <linux/gpio.h>
+
+
 /*****************************************************************************
  *                        SLEEP STATE DEBUG INTERFACE                        *
  *****************************************************************************/
@@ -110,12 +114,17 @@ static void cmd_show_usage(void)
 }
 
 /* Force deep sleep functionality utilized by at*mlpm command */
+#define GPIO_TOUCHKEY_LED_LDO_EN 130
+
 extern void uas_jig_force_sleep(void);
 static void cmd_force_sleep(void)
 {
 	kona_pm_reg_pm_enter_handler(&capri_force_sleep);
 	request_suspend_state(PM_SUSPEND_MEM);
 
+	/*turn Touchkey LED off */
+	gpio_direction_output(GPIO_TOUCHKEY_LED_LDO_EN, 0);
+	
 	uas_jig_force_sleep();
 }
 

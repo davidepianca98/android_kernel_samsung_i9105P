@@ -934,12 +934,8 @@ void AUDCTRL_SetTelephonySpkrVolume(AUDIO_SINK_Enum_t speaker,
 		if (telephony_dl_gain_dB < -(p->voice_volume_max))
 			telephony_dl_gain_dB = -(p->voice_volume_max);
 
-		if((app != AUDIO_APP_LOOPBACK) || (mode != AUDIO_SINK_HEADSET))
-		{
-		    user_vol_setting[app][mode].L = volume;
-		    user_vol_setting[app][mode].R = volume;      
-		    user_vol_setting[app][mode].valid = TRUE;
-		}
+		user_vol_setting[app][mode].L = volume;
+		user_vol_setting[app][mode].valid = TRUE;
 
 	} else if (gain_format == AUDIO_GAIN_FORMAT_DSP_VOICE_VOL_GAIN) {
 		if (volume > 14)
@@ -3281,14 +3277,12 @@ static void AUDCTRL_RemoveVoiceApp(AudioApp_t app)
 {
 	if (app == AUDIO_APP_VOICE_CALL ||
 		app == AUDIO_APP_VOICE_CALL_WB ||
-		app == AUDIO_APP_LOOPBACK ||
 		app == AUDIO_APP_VT_CALL ||
 		app == AUDIO_APP_VT_CALL_WB ||
 		app == AUDIO_APP_VOIP ||
 		app == AUDIO_APP_VOIP_INCOMM) {
 		sAudioAppStates[AUDIO_APP_VOICE_CALL] = FALSE;
 		sAudioAppStates[AUDIO_APP_VOICE_CALL_WB] = FALSE;
-		sAudioAppStates[AUDIO_APP_LOOPBACK] = FALSE;
 		sAudioAppStates[AUDIO_APP_VT_CALL] = FALSE;
 		sAudioAppStates[AUDIO_APP_VT_CALL_WB] = FALSE;
 		sAudioAppStates[AUDIO_APP_VOIP] = FALSE;
@@ -3970,12 +3964,12 @@ int AUDCTRL_HardwareControl(AUDCTRL_HW_ACCESS_TYPE_en_t access_type,
 		IsAudioDock = arg1;
 		extern_dock_audio_route(arg1);
 		break;
-	case AUDCTRL_HW_CFG_MIC_SEL:
-		extern_mic_sel_audio_route(arg1);
-		break;
 #if defined(CONFIG_MACH_CAPRI_SS_BAFFIN_CMCC)		
 	case AUDCTRL_HW_CFG_MODE_SEL:
 		extern_mode_sel_audio_route(arg1);
+		break;
+	case AUDCTRL_HW_CFG_MIC_SEL:
+		extern_mic_sel_audio_route(arg1);
 		break;
 	case AUDCTRL_HW_CFG_BT_SEL:
 		extern_bt_sel_audio_route(arg1);

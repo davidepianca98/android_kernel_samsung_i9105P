@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2012 SAMSUNG
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA  02110-1301, USA.
+ */
+
 #ifndef __GP2A_H__
 #define __GP2A_H__
 
@@ -34,43 +53,52 @@
 #define PROX_IOC_SET_CALIBRATION       _IOW(PROX_IOC_MAGIC, 0x90, short)
 #define PROX_IOC_GET_CALIBRATION       _IOR(PROX_IOC_MAGIC, 0x91, short)
 
+#define DEFAULT_LO_THR	0x07 /* sharp recommand Loff */
+#define DEFAULT_HI_THR	0x08 /* sharp recommand Lon */
+
+#define OFFSET_ARRAY_LENGTH		10
+
 /* 16 level for premium model*/
 enum {
 	LIGHT_DIM   = 0,
-	LIGHT_LEVEL1   = 1,
-	LIGHT_LEVEL2   = 2,
-	LIGHT_LEVEL3   = 3,
-	LIGHT_LEVEL4   = 4,
-	LIGHT_LEVEL5   = 5,
-	LIGHT_LEVEL6   = 6,
-	LIGHT_LEVEL7   = 7,
-	LIGHT_LEVEL8   = 8,
-	LIGHT_LEVEL9   = 9,
-	LIGHT_LEVEL10   = 10,
-	LIGHT_LEVEL11   = 11,
-	LIGHT_LEVEL12   = 12,
-	LIGHT_LEVEL13   = 13,
-	LIGHT_LEVEL14   = 14,
-	LIGHT_LEVEL15   = 15,
-	LIGHT_LEVEL16   = 16,
-	LIGHT_INIT  = 17,
+	LIGHT_LEVEL1,
+	LIGHT_LEVEL2,
+	LIGHT_LEVEL3,
+	LIGHT_LEVEL4,
+	LIGHT_LEVEL5,
+	LIGHT_LEVEL6,
+	LIGHT_LEVEL7,
+	LIGHT_LEVEL8,
+	LIGHT_LEVEL9,
+	LIGHT_LEVEL10,
+	LIGHT_LEVEL11,
+	LIGHT_LEVEL12,
+	LIGHT_LEVEL13,
+	LIGHT_LEVEL14,
+	LIGHT_LEVEL15,
+	LIGHT_LEVEL16,
+	LIGHT_INIT,
 };
-
-/* prototype */
-int opt_i2c_read(u8 reg, unsigned char *rbuf, int len);
-int opt_i2c_write(u8 reg, u8 *val);
-
-struct gp2a_platform_data {
-	int (*gp2a_led_on) (int);
-	void (*power_on) (int);
+enum {
+	D0_BND = 0,
+	D0_COND1,
+	D0_COND1_A,
+	D0_COND1_B,
+	D0_COND2,
+	D0_COND2_A,
+	D0_COND2_B,
+	D0_COND3_A,
+	D0_COND3_B,
+};
+struct gp2ap030_pdata {
+	void (*power_on) (bool);
+	void (*led_on) (bool);
 	int p_out; /* proximity-sensor-output gpio */
-        int power_gpio;
-	int adapt_num;
-	int addr;
-	int version;
-	unsigned long (*gp2a_get_threshold)(void);
+	int version; /* choice chip version 020 or 030 */
+	const char *prox_cal_path;
+	int d0_value[9];
+	u8 thresh[2];
+	int power_gpio;
 };
-
-extern struct class *sensors_class;
 
 #endif

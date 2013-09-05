@@ -322,6 +322,7 @@ static struct bcmpmu_platform_data bcmpmu_plat_data = {
 	.batt_temp_map = &batt_temp_map[0],
 	.batt_temp_map_len = ARRAY_SIZE(batt_temp_map),
 	.adc_setting = &adc_setting,
+	.adc_rtm_for_hk = 1,
 	.num_of_regl = ARRAY_SIZE(bcm59056_regulators),
 	.regulator_init_data = &bcm59056_regulators[0],
 	.fg_smpl_rate = 2083,

@@ -58,8 +58,7 @@ obj-$(CONFIG_KONA_PROFILER) += profiler.o ccu_profiler.o pi_profiler.o
 obj-$(CONFIG_BCM_HWCAPRI_1605) += blocker.o
 
 obj-$(CONFIG_BCM_VC_SERVICES) += vc_dt.o vc_panic.o
-CFLAGS_vc_panic.o += -I"drivers/misc/vc04_services/interface/debug_sym" \
-	-I"include/linux/broadcom"
+CFLAGS_vc_panic.o += -I"drivers/misc/vc04_services/interface/debug_sym"
 
 ifeq ($(CONFIG_KONA_USB_CONTROL),)
 obj-y += bcm_hsotgctrl_dummy.o

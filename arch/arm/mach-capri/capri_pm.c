@@ -113,21 +113,6 @@ static int enter_retention_state(struct kona_idle_state *state);
 static int capri_devtemp_cntl(struct as_one_cpu *sys, int enable);
 static Boolean redo_auto = FALSE;
 volatile int suspend_debug_count;
-#define PM_WAKEUP_BY_COMMON_INT_TO_AC_EVENT 1
-#define PM_WAKEUP_BY_COMMON_TIMER_1_EVENT  2
-#define VREQ_NONZERO_PI_MODEM_EVENT_IS_ON  4
-
-struct capri_pm_dbg {
-	u32 hubTM_stcs;
-	u32 hubTM_stclo;
-	u32 hubTM_stchi;
-	u32 hubTM_stcm1;
-	u32 pm_set[7];
-	u32 pm_event;
-};
-
-volatile struct capri_pm_dbg pre_pm_dbg;
-volatile struct capri_pm_dbg post_pm_dbg;
 
 enum {
 	SUSPEND_WFI,
@@ -812,40 +797,6 @@ static void config_wakeup_interrupts(void)
 	spin_unlock_irqrestore(&wake_up_event_lock, flgs);
 }
 
-static void capri_pm_dbg_store(struct capri_pm_dbg *pm_dbg_ptr)
-{
-	pm_dbg_ptr->hubTM_stcs = readl_relaxed(KONA_TMR_HUB_VA + KONA_GPTIMER_STCS_OFFSET);
-	pm_dbg_ptr->hubTM_stclo = readl_relaxed(KONA_TMR_HUB_VA + KONA_GPTIMER_STCLO_OFFSET);
-	pm_dbg_ptr->hubTM_stchi = readl_relaxed(KONA_TMR_HUB_VA + KONA_GPTIMER_STCHI_OFFSET);
-	pm_dbg_ptr->hubTM_stcm1 = readl_relaxed(KONA_TMR_HUB_VA + KONA_GPTIMER_STCM1_OFFSET);
-
-	pm_dbg_ptr->pm_set[0] = readl_relaxed(KONA_CHIPREG_VA +
-		       CHIPREG_INTERRUPT_EVENT_4_PM_SET0_OFFSET);
-	pm_dbg_ptr->pm_set[1] = readl_relaxed(KONA_CHIPREG_VA +
-			   CHIPREG_INTERRUPT_EVENT_4_PM_SET1_OFFSET);
-	pm_dbg_ptr->pm_set[2] = readl_relaxed(KONA_CHIPREG_VA +
-			   CHIPREG_INTERRUPT_EVENT_4_PM_SET2_OFFSET);
-	pm_dbg_ptr->pm_set[3] = readl_relaxed(KONA_CHIPREG_VA +
-			   CHIPREG_INTERRUPT_EVENT_4_PM_SET3_OFFSET);
-	pm_dbg_ptr->pm_set[4] = readl_relaxed(KONA_CHIPREG_VA +
-			   CHIPREG_INTERRUPT_EVENT_4_PM_SET4_OFFSET);
-	pm_dbg_ptr->pm_set[5] = readl_relaxed(KONA_CHIPREG_VA +
-			   CHIPREG_INTERRUPT_EVENT_4_PM_SET5_OFFSET);
-	pm_dbg_ptr->pm_set[6] = readl_relaxed(KONA_CHIPREG_VA +
-			   CHIPREG_INTERRUPT_EVENT_4_PM_SET6_OFFSET);
-	
-	pm_dbg_ptr->pm_event = 0;		
-
-	if (pwr_mgr_is_event_active(COMMON_INT_TO_AC_EVENT))
-		pm_dbg_ptr->pm_event |= PM_WAKEUP_BY_COMMON_INT_TO_AC_EVENT;
-
-	if (pwr_mgr_is_event_active(COMMON_TIMER_1_EVENT))
-		pm_dbg_ptr->pm_event |= PM_WAKEUP_BY_COMMON_TIMER_1_EVENT;
-
-	if (pwr_mgr_is_event_active(VREQ_NONZERO_PI_MODEM_EVENT))
-		pm_dbg_ptr->pm_event |= VREQ_NONZERO_PI_MODEM_EVENT_IS_ON;
-}
-
 int print_sw_event_info()
 {
 	u32 reg_val = 0;
@@ -1069,9 +1020,8 @@ static int capri_suspend_dormant(bool enter_dormant)
 		arm_pll_disable(true);
 	}
 	suspend_debug_count = 3;
-
-	clear_wakeup_interrupts();
 	clear_wakeup_events();
+	clear_wakeup_interrupts();
 	config_wakeup_interrupts();
 	/*set A9's to retention state status */
 
@@ -1082,30 +1032,9 @@ static int capri_suspend_dormant(bool enter_dormant)
 		capri_clock_print_act_clks();
 		capri_pi_mgr_print_act_pis();
 	}
-	{
-		int tmp_val;
-		tmp_val = readl_relaxed(KONA_PWRMGR_VA +
-		       PWRMGR_SOFTWARE_0_VI_ARM_SUBSYSTEM_POLICY_OFFSET);
-		pr_info("%s:SW0_EVENT(arm_sub)=%d\n", __func__, tmp_val );
-		if ((tmp_val & 0x07) == 0x5 ) 
-			writel_relaxed(tmp_val&0xfb, KONA_PWRMGR_VA +
-		       PWRMGR_SOFTWARE_0_VI_ARM_SUBSYSTEM_POLICY_OFFSET);
-	}
-	capri_pm_dbg_store(&pre_pm_dbg);
 	suspend_debug_count = 4;
 	dormant_enter(CAPRI_DORMANT_CLUSTER_DOWN, CAPRI_DORMANT_SUSPEND_PATH);
 	suspend_debug_count = 5;
-	/*log wake up events*/
-	if (dbg_dsm_suspend) {	
-		#define MAX_LOG_EVENTID 5
-		int i;
-		int eventId[MAX_LOG_EVENTID];
-		pwr_mgr_get_wakeup_events(eventId, MAX_LOG_EVENTID);
-		for (i = 0; i < MAX_LOG_EVENTID; i++) {
-			pr_info("wakeup ID:%d\n",eventId[i]);
-		}
-	}
-	capri_pm_dbg_store(&post_pm_dbg);
 	/*enable SW2 Active bit */
 	pwr_mgr_event_set(SOFTWARE_2_EVENT, 1);
 
@@ -1127,9 +1056,8 @@ static int capri_suspend_deepsleep(void)
 		arm_pll_disable(true);
 	}
 
-	clear_wakeup_interrupts();
 	clear_wakeup_events();
-	
+	clear_wakeup_interrupts();
 	config_wakeup_interrupts();
 	/*set A9's to retention state status */
 
@@ -1189,8 +1117,8 @@ static int capri_suspend_retention(void)
 	arm_pll_disable(true);
 
 	/*enable AUTOGATING BSC */
-	clear_wakeup_interrupts();
 	clear_wakeup_events();
+	clear_wakeup_interrupts();
 	config_wakeup_interrupts();
 	/*set A9's to retention state status */
 
@@ -1244,8 +1172,8 @@ int enter_idle_state(struct kona_idle_state *state)
 	if ((state->flags & CPUIDLE_FLAG_XTAL_ON) || keep_xtl_on)
 		clk_set_crystal_pwr_on_idle(false);
 
-	clear_wakeup_interrupts();
 	clear_wakeup_events();
+	clear_wakeup_interrupts();
 	config_wakeup_interrupts();
 
 	/*Enter when last CPU enters WFI */

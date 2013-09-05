@@ -161,7 +161,7 @@ static const unsigned int candela_table[GAMMA_MAX] = {
 #define LCD_SDI_HIGH	gpio_set_value(SPI_SDI /*SSP0_TXD*/, 1);
 #define LCD_SDI_LOW		gpio_set_value(SPI_SDI /*SSP0_TXD*/, 0);
 
-#define DEFAULT_USLEEP	2
+#define DEFAULT_USLEEP	1
 
 static int ld9040_spi_read(struct lcd_info *lcd, unsigned int addr,
 	unsigned char *buf, unsigned int len, unsigned int dummy_bit)

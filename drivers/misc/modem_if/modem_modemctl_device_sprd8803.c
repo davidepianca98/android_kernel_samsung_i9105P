@@ -31,14 +31,21 @@ static int sprd_power_on_cnt=0;
 #define GPIO_UART_TX 	74
 #define GPIO_SPI_TX 		94
 
-static int configure_control_pin(bool sprd_on)
+
+static int configure_control_pin(int sprd_on)
 {
 	int ret=0;
-	char i;
+	static int sprd_status=0xff;
 	struct pin_config new_pin_config_u;
 	struct pin_config new_pin_config_s;
 
-	pr_err("%s, Congifure Pin with sprd:%d\n",__func__,sprd_on);
+	if(sprd_status==sprd_on)
+	{
+	//	pr_err("%s, return %d\n",__func__,sprd_on);
+		return 0;
+	}
+
+//	pr_err("%s, Congifure Pin with sprd:%d\n",__func__,sprd_on);
 	
 	new_pin_config_u.name = PN_UARTB2_UTXD;
 	ret = pinmux_get_pin_config(&new_pin_config_u);
@@ -95,14 +102,13 @@ static int configure_control_pin(bool sprd_on)
 			return ret;
 		}
 
-		gpio_direction_output(GPIO_UART_TX, 0);
-		gpio_direction_output(GPIO_SPI_TX, 0);
-
+		gpio_set_value(GPIO_UART_TX, 0);
+		gpio_set_value(GPIO_SPI_TX, 0);
 
 		
 	
 	}
-
+	sprd_status=sprd_on;
 
 	return ret;
 }
@@ -158,7 +164,7 @@ static int sprd8803_off(struct modem_ctl *mc)
 		mif_err("no gpio data\n");
 		return -ENXIO;
 	}
-	configure_control_pin(0);
+//	configure_control_pin(0);
 	gpio_set_value(mc->gpio_cp_on, 0);
 
 #ifdef CONFIG_SEC_DUAL_MODEM_MODE
@@ -254,6 +260,12 @@ static irqreturn_t phone_active_irq_handler(int irq, void *_mc)
 	if (cp_dump_value) {
 		phone_state = STATE_CRASH_EXIT;
 	}
+
+	if(phone_state ==STATE_OFFLINE){
+		gpio_set_value(mc->gpio_pda_active, 0);
+		configure_control_pin(0);
+	}
+
 
 	if (mc->iod && mc->iod->modem_state_changed)
 		mc->iod->modem_state_changed(mc->iod, phone_state);

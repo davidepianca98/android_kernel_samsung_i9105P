@@ -401,7 +401,10 @@ static ssize_t set_firm_version_read_show(struct device *dev,
 	struct cyttsp4_core_data *cd = dev_get_drvdata(dev);
 	char fw_version[10];
 
-	get_tsp_vendor(cd, fw_version);
+      //return sprintf(fw_version, "CY13%04X", cyttsp4_get_phone_fw_ver());
+      sprintf(fw_version, "CY%02X%04X", 
+				0x13, cyttsp4_get_phone_fw_ver());
+      //get_tsp_vendor(cd, fw_version);
 	return sprintf(buf, "%s", fw_version); /* it's connected to at_sec_handler */
 }
 

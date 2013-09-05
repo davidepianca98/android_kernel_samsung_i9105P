@@ -73,11 +73,8 @@ task_notify_func(struct notifier_block *self, unsigned long val, void *data)
 {
 	struct task_struct *task = data;
 
-	if (task == lowmem_deathpending) {
-		lowmem_print(2, "lowmem_shrink %s/%d is dead!\n",
-				task->comm, task->pid);
+	if (task == lowmem_deathpending)
 		lowmem_deathpending = NULL;
-	}
 
 	return NOTIFY_OK;
 }
@@ -96,22 +93,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int other_free = global_page_state(NR_FREE_PAGES);
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-
-	/*
-	 * If CMA is enabled, then do not count free pages
-	 * from CMA region and also ignore CMA pages that are
-	 * allocated for files.
-	 */
-#ifdef CONFIG_CMA
-	int cma_free, cma_file;
-
-	cma_free = global_page_state(NR_FREE_CMA_PAGES);
-	cma_file = global_page_state(NR_CMA_INACTIVE_FILE)
-			+ global_page_state(NR_CMA_ACTIVE_FILE);
-
-	other_free -= cma_free;
-	other_file -= cma_file;
-#endif
 
 	/*
 	 * If we already have a death outstanding, then
@@ -143,16 +124,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
-	/*
-	 * If CMA is enabled, We will also free up contiguous
-	 * allocations done by processes (We cannot free up DMA
-	 * allocations that go from CMA region, but we can't count
-	 * DMA and PMEM allocations separately right now, so we take
-	 * the total.
-	 */
-#ifdef CONFIG_CMA
-	rem += global_page_state(NR_CONTIG_PAGES);
-#endif
 	if (sc->nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
 		lowmem_print(5, "lowmem_shrink %lu, %x, return %d\n",
 			     sc->nr_to_scan, sc->gfp_mask, rem);
@@ -196,12 +167,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     p->pid, p->comm, oom_adj, tasksize);
 	}
 	if (selected) {
-		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d"
-				" with ofree %d %d, cfree %d %d ma %d\n",
+		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
-			     selected_oom_adj, selected_tasksize,
-			     other_free, other_file, cma_free, cma_file,
-			     min_adj);
+			     selected_oom_adj, selected_tasksize);
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
 		force_sig(SIGKILL, selected);

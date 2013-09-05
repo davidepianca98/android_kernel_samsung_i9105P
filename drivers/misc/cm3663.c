@@ -63,11 +63,7 @@ static u8 reg_defaults[8] = {
 	0x00, /* ALS_LSB: read only register */
 	0x30, /* PS_CMD: interrupt disable */
 	0x00, /* PS_DATA: read only register */
-#if defined (CONFIG_MACH_CAPRI_SS_COMMON_P_MODEL)
-	0x0A, /* PS_THD: 10 */
-#else
-	0x08, /* PS_THD: 8 */
-#endif
+	0x08, /* PS_THD: 10 */
 };
 
 

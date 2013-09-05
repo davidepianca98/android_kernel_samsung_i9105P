@@ -103,47 +103,6 @@ spinlock_t gDmaDevLock;
 	.peripheralId = 0, \
 }
 
-#ifdef CONFIG_MACH_CAPRI_SS_BAFFIN_CMCC
-
-#define DEVICE_SSPI_DEV_TO_MEM(n, periph_id) \
-{ \
-	.flags = SECURE_FLAG, \
-	.name = n, \
-	.config = \
-	{ \
-		.dstBurstLen	 = CHAL_DMA_BURST_LEN_4, \
-		.dstBurstSize	 = CHAL_DMA_BURST_SIZE_4_BYTES, \
-		.dstEndpoint	 = CHAL_DMA_ENDPOINT_MEMORY, \
-		.srcBurstLen	 = CHAL_DMA_BURST_LEN_4, \
-		.srcBurstSize	 = CHAL_DMA_BURST_SIZE_4_BYTES, \
-		.srcEndpoint	 = CHAL_DMA_ENDPOINT_PERIPHERAL, \
-		.descType		 = CHAL_DMA_DESC_RING, \
-		.alwaysBurst	 = TRUE, \
-	}, \
-	.peripheralId = periph_id, \
-}
-
-#define DEVICE_SSPI_MEM_TO_DEV(n, periph_id) \
-{ \
-	.flags = SECURE_FLAG, \
-	.name = n, \
-	.config = \
-	{ \
-		.dstBurstLen	 = CHAL_DMA_BURST_LEN_4, \
-		.dstBurstSize	 = CHAL_DMA_BURST_SIZE_4_BYTES, \
-		.dstEndpoint	 = CHAL_DMA_ENDPOINT_PERIPHERAL, \
-		.srcBurstLen	 = CHAL_DMA_BURST_LEN_4, \
-		.srcBurstSize	 = CHAL_DMA_BURST_SIZE_4_BYTES, \
-		.srcEndpoint	 = CHAL_DMA_ENDPOINT_MEMORY, \
-		.descType		 = CHAL_DMA_DESC_LIST, \
-		.alwaysBurst	 = TRUE, \
-	}, \
-	.peripheralId = periph_id, \
-}
-
-
-#else
-
 #define DEVICE_SSPI_DEV_TO_MEM(n, periph_id) \
 { \
 	.flags = SECURE_FLAG, \
@@ -156,8 +115,8 @@ spinlock_t gDmaDevLock;
 		.srcBurstLen     = CHAL_DMA_BURST_LEN_4, \
 		.srcBurstSize    = CHAL_DMA_BURST_SIZE_4_BYTES, \
 		.srcEndpoint     = CHAL_DMA_ENDPOINT_PERIPHERAL, \
-		.descType        = CHAL_DMA_DESC_RING, \
-		.alwaysBurst     = FALSE, \
+		.descType        = CHAL_DMA_DESC_LIST, \
+		.alwaysBurst     = TRUE, \
 	}, \
 	.peripheralId = periph_id, \
 }
@@ -174,12 +133,11 @@ spinlock_t gDmaDevLock;
 		.srcBurstLen     = CHAL_DMA_BURST_LEN_4, \
 		.srcBurstSize    = CHAL_DMA_BURST_SIZE_4_BYTES, \
 		.srcEndpoint     = CHAL_DMA_ENDPOINT_MEMORY, \
-		.descType        = CHAL_DMA_DESC_RING, \
-		.alwaysBurst     = FALSE, \
+		.descType        = CHAL_DMA_DESC_LIST, \
+		.alwaysBurst     = TRUE, \
 	}, \
 	.peripheralId = periph_id, \
 }
-#endif
 
 SDMA_DeviceAttribute_t SDMA_gDeviceAttribute[DMA_NUM_DEVICE_ENTRIES] = {
 	[DMA_DEVICE_MEM_TO_MEM] = DEVICE_MEM_TO_MEM("mem-to-mem"),
@@ -2159,7 +2117,7 @@ int sdma_dump_debug_info(SDMA_Handle_t handle	/* DMA Handle */
 	SDMA_Channel_t *channel;
 
 	channel = HandleToChannel(handle);
-	if (channel == NULL)
+	if (channel == NULL || channel->sdmacHandle == NULL)
 		return -ENODEV;
 	chal_dma_dump_register(channel->sdmacHandle, printk);
 

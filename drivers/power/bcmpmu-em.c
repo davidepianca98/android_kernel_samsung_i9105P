@@ -2054,7 +2054,7 @@ static void em_algorithm(struct work_struct *work)
 	static int first_run = 0;
 	static int poll_count = 0;
 	static int cap_poll_count;
-	static int vbatt_poll[POLL_SAMPLES];
+	static int cbatt_poll[POLL_SAMPLES];
 	static int cap_poll[CAP_POLL_SAMPLES];
 	int ret;
 	int retry_cnt = 0;
@@ -2131,50 +2131,33 @@ static void em_algorithm(struct work_struct *work)
 		req.tm = PMU_ADC_TM_HK;
 		req.flags = PMU_ADC_RAW_AND_UNIT;
 		bcmpmu->adc_req(bcmpmu, &req);
-		vbatt_poll[poll_count - 1] = req.cnv;
+		pem->batt_volt = req.cnv;
+
+		ret = pem->bcmpmu->fg_fst_currsmpl(bcmpmu, &pem->batt_curr);
+		pem->batt_curr;
+
+		pem->oc_volt = get_ocv(pem);
+		capacity = em_batt_get_capacity(pem,
+			pem->oc_volt, 0);
+
+		cbatt_poll[poll_count - 1] = capacity;
+
+		pr_em(FLOW, "%s, poll_cnt=%d, vbat=%d, ibat=%d, cap=%d\n",
+			__func__, poll_count, pem->batt_volt, pem->batt_curr,
+			capacity);
+
 		pem->mode = MODE_POLL;
 		poll_count--;
 		if (pem->cal_mode == CAL_MODE_CUTOFF)
 			if (req.cnv <= pem->cutoff_volt)
 				pem->cutoff_count++;
-		pr_em(FLOW, "%s, first_run=%d, pollcnt=%d, fgbat=%d\n",
-			__func__, first_run, poll_count, req.cnv);
 		schedule_delayed_work(&pem->work,
 			msecs_to_jiffies(get_update_rate(pem)));
 		return;
 	}
 	if (pem->mode == MODE_POLL) {
-		ret = pem->bcmpmu->fg_acc_mas(pem->bcmpmu, &fg_result);
-		if (ret != 0) {
-			pem->mode = MODE_IDLE;
-			poll_count = POLL_SAMPLES;
-			pr_em(FLOW, "%s, acc_mas failed, restart poll.\n",
-				__func__);
-			schedule_delayed_work(&pem->work,
-				msecs_to_jiffies(get_update_rate(pem)));
-			return;
-		}
-		req.sig = PMU_ADC_FG_CURRSMPL;
-		req.tm = PMU_ADC_TM_HK;
-		req.flags = PMU_ADC_RAW_AND_UNIT;
-		ret = bcmpmu->adc_req(bcmpmu, &req);
-		if (ret != 0) {
-			pem->mode = MODE_IDLE;
-			poll_count = POLL_SAMPLES;
-			pr_em(FLOW, "%s, currsmpl failed, restart poll.\n",
-				__func__);
-			schedule_delayed_work(&pem->work,
-				msecs_to_jiffies(get_update_rate(pem)));
-			return;
-		}
-		pem->batt_curr = req.cnv;
-
-		sort(vbatt_poll, POLL_SAMPLES, sizeof(int), &cmp, NULL);
-		pem->batt_volt = average(vbatt_poll, POLL_SAMPLES, 2);
-
-		pem->oc_volt = get_ocv(pem);
-		capacity = em_batt_get_capacity(pem,
-			pem->oc_volt, 0);
+		sort(cbatt_poll, POLL_SAMPLES, sizeof(int), &cmp, NULL);
+		capacity = average(cbatt_poll, POLL_SAMPLES, 2);
 
 		if (cap_poll_count > 0) {
 			cap_poll[cap_poll_count - 1] = capacity;

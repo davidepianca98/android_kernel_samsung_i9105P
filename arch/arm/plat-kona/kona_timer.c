@@ -591,6 +591,7 @@ int kona_timer_set_match_start(struct kona_timer *kt, unsigned long load)
 	/* make sure new comparator value is loaded into timer */
 	__wait_for_compare_val_sync(kt);
 #endif
+
 	/*
 	 * Enable timer compare register. Clean up the Match field (3..0),
 	 * writing 1 to this bit would clean the interrupt for the respective
@@ -605,6 +606,7 @@ int kona_timer_set_match_start(struct kona_timer *kt, unsigned long load)
 #ifdef CONFIG_GP_TIMER_COMPARATOR_LOAD_DELAY
 	/* __wait_for_compare_enable_sync(kt); */
 #endif
+
 	spin_unlock_irqrestore(&ktm->lock, flags);
 
 	return 0;
@@ -726,7 +728,6 @@ EXPORT_SYMBOL(kona_timer_get_counter);
  */
 int kona_timer_disable_and_clear(struct kona_timer *kt)
 {
-	unsigned long reg;
 	struct kona_timer_module *ktm;
 	unsigned long flags;
 	int cpu = smp_processor_id();
@@ -737,27 +738,7 @@ int kona_timer_disable_and_clear(struct kona_timer *kt)
 	ktm = kt->ktm;
 
 	spin_lock_irqsave(&ktm->lock, flags);
-
-	/*
-	 * clear and disable interrupts
-	 * We are using compare/match register 0 for our system interrupts
-	 */
-	reg = readl(ktm->reg_base + KONA_GPTIMER_STCS_OFFSET);
-
-	/* Clear compare (0) interrupt */
-	/*
-	 * Clean up the Match field (3..0), writing 1 to this bit
-	 * would clean the interrupt for the respective channel.
-	 * So do this for only the required channel.
-	 */
-	reg &= ~KONA_GPTIMER_STCS_TIMER_MATCH_MASK;
-	reg |= 1 << (kt->ch_num + KONA_GPTIMER_STCS_TIMER_MATCH_SHIFT);
-	/* disable compare */
-	reg &= ~(1 << (kt->ch_num + KONA_GPTIMER_STCS_COMPARE_ENABLE_SHIFT));
-
-	writel_dbg(reg,	ktm->reg_base + KONA_GPTIMER_STCS_OFFSET, cpu,
-			jiffies);
-
+	__disable_channel(kt);
 	spin_unlock_irqrestore(&ktm->lock, flags);
 	return 0;
 }
@@ -1282,27 +1263,6 @@ static inline int irq_to_ch(int irq)
 	return -1;
 }
 
-struct tmr_reg {
-	u32 stcs;
-	u32 stclo;
-	u32 stchi;
-	u32 stcm0;
-	u32 stcm1;
-	u32 stcm2;
-	u32 stcm3;
-};
-
-struct tmr_dbg {
-	int mode;
-	unsigned long last_jiffies;
-	unsigned long wrong_irq_count;
-	unsigned long irq_count;
-
-	struct tmr_reg reg_bank;
-};
-
-static struct tmr_dbg tmr_dbg_82;
-static struct tmr_dbg tmr_dbg_83;
 /*
  * In case the interrupt is for a channel that has to count
  * periodically, re-program the registers accordingly.
@@ -1343,8 +1303,6 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 #endif
 	int cpu = smp_processor_id();
 
-	struct tmr_dbg *dbg = NULL;
-
 	ktm = (struct kona_timer_module *)dev_id;
 	ch_num = irq_to_ch(irq);
 
@@ -1354,17 +1312,6 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 	}
 
 	spin_lock_irqsave(&ktm->lock, flags);
-
-	if (irq == 82) {
-		dbg = &tmr_dbg_82;
-	}
-
-	if (irq == 83) {
-		dbg = &tmr_dbg_83;
-	}
-
-	if (dbg)
-		dbg->irq_count++;
 
 	kt = ktm->pkt + ch_num;
 
@@ -1377,8 +1324,6 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 #ifdef CONFIG_KONA_TIMER_DEBUG
 		kt->nr_wrong_interrupt++;
 #endif
-		if (dbg)
-			dbg->wrong_irq_count++;
 		spin_unlock_irqrestore(&ktm->lock, flags);
 		goto ret;
 	}
@@ -1431,9 +1376,6 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 	kt->nr_timedout++;
 #endif
 
-	if (dbg)
-		dbg->mode = kt->cfg.mode;
-
 	if (kt->cfg.mode == MODE_PERIODIC) {
 		__disable_channel(kt);
 
@@ -1451,16 +1393,15 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 		     (kt->ch_num + KONA_GPTIMER_STCS_COMPARE_ENABLE_SHIFT));
 		writel_dbg(reg, ktm->reg_base + KONA_GPTIMER_STCS_OFFSET, cpu,
 				jiffies);
+
 #ifdef CONFIG_GP_TIMER_COMPARATOR_LOAD_DELAY
 		__wait_for_compare_enable_sync(kt);
 #endif
 	} else {
 #ifdef CONFIG_GP_TIMER_COMPARATOR_LOAD_DELAY
 		/* if already disabled, do nothing */
-		if (!__wait_for_compare_enable_sync(kt)) {
-			spin_unlock_irqrestore(&ktm->lock, flags);
-			goto ret;
-		}
+		if (!__wait_for_compare_enable_sync(kt))
+			return;
 #endif
 		/* disable timer, but don't need enable sync in the end */
 		reg = readl(ktm->reg_base + KONA_GPTIMER_STCS_OFFSET);
@@ -1472,9 +1413,6 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 				jiffies);
 	}
 
-
-
-
 	spin_unlock_irqrestore(&ktm->lock, flags);
 
 	/* Invoke the call back, if any */
@@ -1482,15 +1420,5 @@ static irqreturn_t kona_timer_isr(int irq, void *dev_id)
 		(*kt->cfg.cb) (kt->cfg.arg);
 
 ret:
-	if (dbg) {
-		dbg->last_jiffies = jiffies;
-		dbg->reg_bank.stcs = readl(ktm->reg_base + KONA_GPTIMER_STCS_OFFSET);
-		dbg->reg_bank.stclo = readl(ktm->reg_base + KONA_GPTIMER_STCLO_OFFSET);
-		dbg->reg_bank.stchi = readl(ktm->reg_base + KONA_GPTIMER_STCHI_OFFSET);
-		dbg->reg_bank.stcm0 = readl(ktm->reg_base + KONA_GPTIMER_STCM0_OFFSET);
-		dbg->reg_bank.stcm1 = readl(ktm->reg_base + KONA_GPTIMER_STCM1_OFFSET);
-		dbg->reg_bank.stcm2 = readl(ktm->reg_base + KONA_GPTIMER_STCM2_OFFSET);
-		dbg->reg_bank.stcm3 = readl(ktm->reg_base + KONA_GPTIMER_STCM3_OFFSET);
-	}
 	return IRQ_HANDLED;
 }

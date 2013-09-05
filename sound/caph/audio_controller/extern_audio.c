@@ -662,21 +662,6 @@ void extern_dock_audio_route(int gpio_val)
 		audio_gpio_output("AUDIO_DOCK_ROUTE",
 			ext_aud_plat_cfg.dock_aud_route_gpio, gpio_val);
 }
-
-/********************************************************************
-*  @brief  Set the GPIO pin value to route the audio to the mic sel
-*
-*  @param  Toggle value of the GPIO pin.  1 - High, 0 - Low
-*  @return  none
-*
-****************************************************************************/
-void extern_mic_sel_audio_route(int gpio_val)
-{
-	if (ext_aud_plat_cfg.mic_sel_aud_route_gpio > 0)
-		audio_gpio_output("MIC_SEL_ROUTE",
-			ext_aud_plat_cfg.mic_sel_aud_route_gpio, gpio_val);
-}
-
 #if defined(CONFIG_MACH_CAPRI_SS_BAFFIN_CMCC)		
 /********************************************************************
 *  @brief  Set the GPIO pin value to route the audio to the mode sel
@@ -690,6 +675,19 @@ void extern_mode_sel_audio_route(int gpio_val)
 	if (ext_aud_plat_cfg.mode_sel_aud_route_gpio > 0)
 		audio_gpio_output("MODE_SEL_ROUTE",
 			ext_aud_plat_cfg.mode_sel_aud_route_gpio, gpio_val);
+}
+/********************************************************************
+*  @brief  Set the GPIO pin value to route the audio to the mic sel
+*
+*  @param  Toggle value of the GPIO pin.  1 - High, 0 - Low
+*  @return  none
+*
+****************************************************************************/
+void extern_mic_sel_audio_route(int gpio_val)
+{
+	if (ext_aud_plat_cfg.mic_sel_aud_route_gpio > 0)
+		audio_gpio_output("MIC_SEL_ROUTE",
+			ext_aud_plat_cfg.mic_sel_aud_route_gpio, gpio_val);
 }
 /********************************************************************
 *  @brief  Set the GPIO pin value to route the audio to the bt sel

@@ -1688,8 +1688,6 @@ void AUDTST_VoIP_Stop(void)
 
 		AUDIO_DRIVER_Close(cur_drv_handle);
 		cur_drv_handle = NULL;
-
-		AUDCTRL_RemoveAudioApp(AUDIO_APP_LOOPBACK);
 #if 0  // sometime memory allocation fail happens so that loopback failed consequently.
 		/* from ceckpatch: kfree is safe, so no need to check */
 		kfree(record_test_buf);
