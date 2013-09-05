@@ -593,7 +593,6 @@ enum bcmpmu_adc_sig {
 	/* do not change the order above */
 	PMU_ADC_RTM,
 	PMU_ADC_FG_CURRSMPL,
-	PMU_ADC_FG_FST_CURRSMPL,
 	PMU_ADC_FG_RAW,
 	PMU_ADC_FG_VMBATT,
 	PMU_ADC_BSI_CAL_LO,
@@ -1239,7 +1238,6 @@ struct bcmpmu {
 
 	/* fg */
 	int (*fg_currsmpl) (struct bcmpmu *pmu, int *data);
-	int (*fg_fst_currsmpl) (struct bcmpmu *pmu, int *data);
 	int (*fg_vmbatt) (struct bcmpmu *pmu, int *data);
 	int (*fg_acc_mas) (struct bcmpmu *pmu, int *data);
 	int (*fg_enable) (struct bcmpmu *pmu, int en);

@@ -65,8 +65,6 @@
 
 extern void csl_caph_ControlHWClock(Boolean eanble);
 static uint8_t clk_name[3][32] = { "ssp0_clk", "ssp4_clk", "ssp3_clk" };
-static uint8_t apb_clk_name[3][32] =
-			{ "ssp0_apb_clk", "ssp4_apb_clk", "ssp3_apb_clk" };
 
 #ifdef CONFIG_DMAC_PL330
 static char dma_tx_chan_name[3][32] = {
@@ -126,7 +124,6 @@ struct spi_kona_data {
 	CHAL_HANDLE chandle;	/* SSPI CHAL Handle */
 	void __iomem *base;	/* SPI virtual base address */
 	struct clk *ssp_clk;	/* SSPI bus clock */
-	struct clk *ssp_apb_clk;	/* SSPI apb clock */
 	unsigned long spi_clk;	/* SPI controller clock speed */
 
 	struct clk *dma_axi_clk;	/* DMA AXI clock */
@@ -611,14 +608,8 @@ static int spi_kona_dma_xfer_rx(struct spi_kona_data *spi_kona)
 
 	/* Wait for RX DMA completion */
 	if ((wait_for_completion_interruptible_timeout
-	     (&spi_kona->rx_dma_evt, msecs_to_jiffies(SSPI_WFC_TIME_OUT))) == 0) {
+	     (&spi_kona->rx_dma_evt, msecs_to_jiffies(SSPI_WFC_TIME_OUT))) == 0)
 		pr_err("SPI Rx DMA Transfer timed out/interrupted\n");
-
-		pr_err("Rx-Only SDMA %d bytes failed - dump sdma registers %d\n",
-			spi_kona->count,
-			sdma_dump_debug_info(spi_kona->rx_dma_chan));
-		chal_sspi_dump_registers(chandle);
-	}
 	else
 		ret = spi_kona->count;
 
@@ -706,11 +697,6 @@ static int spi_kona_dma_xfer_tx(struct spi_kona_data *spi_kona)
 	     (&spi_kona->tx_dma_evt,
 	      msecs_to_jiffies(SSPI_WFC_TIME_OUT))) == 0) {
 		pr_err("SPI Tx DMA Transfer timed out/interrupted\n");
-
-		pr_err("Tx-Only SDMA %d bytes failed - dump sdma registers %d\n",
-			spi_kona->count,
-			sdma_dump_debug_info(spi_kona->tx_dma_chan));
-		chal_sspi_dump_registers(chandle);
 	} else {
 		ret = spi_kona->count;
 	}
@@ -859,20 +845,11 @@ static int spi_kona_dma_xfer(struct spi_kona_data *spi_kona)
 	chal_sspi_enable_dma(chandle, SSPI_DMA_CHAN_SEL_CHAN_TX0,
 			     SSPI_FIFO_ID_TX0, 1);
 
-
 	/* Wait for RX DMA completion */
 	if ((wait_for_completion_interruptible_timeout
 		  (&spi_kona->rx_dma_evt,
 		   msecs_to_jiffies(SSPI_WFC_TIME_OUT))) == 0) {
 		pr_err("SPI Rx DMA Transfer timed out/interrupted\n");
-		pr_err("Rx SDMA %d bytes failed - dump sdma registers %d\n",
-			spi_kona->count,
-			sdma_dump_debug_info(spi_kona->rx_dma_chan));
-		pr_err("Tx SDMA %d bytes failed - dump sdma registers %d\n",
-			spi_kona->count,
-			sdma_dump_debug_info(spi_kona->tx_dma_chan));
-
-		chal_sspi_dump_registers(chandle);
 	}
 	/* Wait for TX DMA completion */
 	else if ((wait_for_completion_interruptible_timeout
@@ -880,10 +857,6 @@ static int spi_kona_dma_xfer(struct spi_kona_data *spi_kona)
 	      msecs_to_jiffies(SSPI_WFC_TIME_OUT))) == 0) {
 		pr_err(" %s SPI Tx DMA Transfer timed out/interrupted\n",
 		       __func__);
-		pr_err("Tx SDMA %d bytes failed - dump sdma registers %d\n",
-			spi_kona->count,
-			sdma_dump_debug_info(spi_kona->tx_dma_chan));
-		chal_sspi_dump_registers(chandle);
 	}
 	else
 		ret = spi_kona->count;
@@ -996,7 +969,7 @@ static int spi_kona_txrxfer_bufs(struct spi_device *spi,
 				     SSPI_FIFO_ID_RX0, 0);
 
 		/* Disable DMA-AXI autogating */
-	//	clk_disable_autogate(spi_kona->dma_axi_clk);
+		clk_disable_autogate(spi_kona->dma_axi_clk);
 
 #ifdef DMA_BURST_CONFIG_16_BYTES
 		chal_sspi_dma_set_burstsize(chandle, SSPI_DMA_CHAN_SEL_CHAN_TX0,
@@ -1039,7 +1012,7 @@ static int spi_kona_txrxfer_bufs(struct spi_device *spi,
 			xfer_len = -EIO;
 
 		/* Re-enable DMA-AXI autogating */
-//		clk_enable_autogate(spi_kona->dma_axi_clk);
+		clk_enable_autogate(spi_kona->dma_axi_clk);
 	} else
 		spi_kona->count = transfer->len;
 
@@ -1163,7 +1136,6 @@ static void spi_kona_work(struct work_struct *work)
 			csl_caph_ControlHWClock(TRUE);
 		}
 		clk_enable(spi_kona->ssp_clk);
-		clk_enable(spi_kona->ssp_apb_clk);
 		list_for_each_entry(t, &m->transfers, transfer_list) {
 
 			/* override speed or wordsize? */
@@ -1244,7 +1216,6 @@ static void spi_kona_work(struct work_struct *work)
 			spi_kona_chipselect(spi, CS_INACTIVE);
 
 		clk_disable(spi_kona->ssp_clk);
-		clk_disable(spi_kona->ssp_apb_clk);
 		if (master->bus_num != 0) {
 			/*turn on caph clock for ssp1 and ssp2 */
 			csl_caph_ControlHWClock(FALSE);
@@ -1483,16 +1454,8 @@ static int spi_kona_probe(struct platform_device *pdev)
 		status = PTR_ERR(spi_kona->ssp_clk);
 		goto out_free_irq;
 	}
-	spi_kona->ssp_apb_clk = clk_get(NULL, apb_clk_name[master->bus_num]);
-	if (IS_ERR_OR_NULL(spi_kona->ssp_apb_clk)) {
-		dev_err(&pdev->dev, "unable to get %s clock\n",
-			apb_clk_name[master->bus_num]);
-		status = PTR_ERR(spi_kona->ssp_apb_clk);
-		goto out_free_irq;
-	}
 	clk_enable(spi_kona->ssp_clk);
-	clk_enable(spi_kona->ssp_apb_clk);
-//	spi_kona->dma_axi_clk = clk_get(NULL, "dma_axi");
+	spi_kona->dma_axi_clk = clk_get(NULL, "dma_axi");
 
 	status = spi_kona_config_spi_hw(spi_kona);
 	if (status) {
@@ -1527,7 +1490,6 @@ static int spi_kona_probe(struct platform_device *pdev)
 	}
 
 	clk_disable(spi_kona->ssp_clk);
-	clk_disable(spi_kona->ssp_apb_clk);
 	pr_info("%s: SSP %d setup done\n", __func__, master->bus_num);
 	return status;
 out_work_queue:
@@ -1536,11 +1498,9 @@ out_iounmap:
 	/* iounmap(spi_kona->base); */
 	chal_sspi_deinit(spi_kona->chandle);
 out_clk_put:
-//	clk_put(spi_kona->dma_axi_clk);
+	clk_put(spi_kona->dma_axi_clk);
 	clk_disable(spi_kona->ssp_clk);
 	clk_put(spi_kona->ssp_clk);
-	clk_disable(spi_kona->ssp_apb_clk);
-	clk_put(spi_kona->ssp_apb_clk);
 out_free_irq:
 	free_irq(spi_kona->irq, spi_kona);
 out_release_mem:
@@ -1569,11 +1529,9 @@ static int spi_kona_remove(struct platform_device *pdev)
 	if (status != CHAL_SSPI_STATUS_SUCCESS)
 		status = -EBUSY;
 
-//	clk_put(spi_kona->dma_axi_clk);
+	clk_put(spi_kona->dma_axi_clk);
 	clk_disable(spi_kona->ssp_clk);
 	clk_put(spi_kona->ssp_clk);
-	clk_disable(spi_kona->ssp_apb_clk);
-	clk_put(spi_kona->ssp_apb_clk);
 	free_irq(spi_kona->irq, spi_kona);
 
 	spi_master_put(master);

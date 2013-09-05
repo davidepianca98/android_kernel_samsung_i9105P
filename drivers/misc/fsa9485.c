@@ -703,11 +703,15 @@ static ssize_t fsa9485_uart_sel_show(struct device *dev,
 	printk("curr_uart_path = %d \n", curr_uart_path);
 	printk("uart_switch_show uart_sel.bin = %s \n", buffer);
 
-	if (!strncmp(buffer, "0", 1)) {
+	if (!strncmp(buffer, "0", 1))
+	{
 	  return sprintf(buf, "AP");
 	} else if(!strncmp(buffer, "1", 1)) {
+	
+	
 	  return sprintf(buf, "CP");
 	}  else {
+	
 	  return sprintf(buf, "AP");
 	}
 }
@@ -730,26 +734,6 @@ static void fsa9485_cp2_usb_on_en(bool en)
 	printk("%s read GPIO 161: value = %d \n", __func__,gpio_get_value(GPIO_CP2_USB_ON));	
 }
 
-#if defined(CONFIG_SEC_DUAL_MODEM)
-#define GPIO_AP_CP_INT1 164
-#define GPIO_PDA_ACTIVE 8
-static void fsa9485_ap_cp_int1_en(bool en)
-{
-	printk("%s : %d \n",__func__, en);
-	gpio_direction_output(GPIO_AP_CP_INT1, en);
-	mdelay(10);
-	printk("%s read GPIO 164: value = %d \n", __func__,gpio_get_value(GPIO_AP_CP_INT1));	
-}
-
-static void fsa9485_pda_active_en(bool en)
-{	
-	printk("%s : %d \n",__func__, en);
-	gpio_direction_output(GPIO_PDA_ACTIVE, en);
-	mdelay(10);
-	printk("%s read GPIO 8: value = %d \n", __func__,gpio_get_value(GPIO_PDA_ACTIVE));	
-}
-#endif
-
 static ssize_t fsa9485_uart_sel_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t size)
 {
 	int fd;
@@ -768,7 +752,7 @@ static ssize_t fsa9485_uart_sel_store(struct device *dev, struct device_attribut
 	mm_segment_t fs = get_fs();
 	set_fs(get_ds());
 	
-	if ((fd = sys_open("/data/path/uart_sel.bin", O_CREAT|O_RDWR, 0666)) < 0)
+	if ((fd = sys_open("/data/path/uart_sel.bin", O_CREAT|O_RDWR, 0664)) < 0)
 	{
 		printk("%s :: open failed %s ,fd=0x%x\n", __func__, "/data/path/uart_sel.bin", fd);
 	} else {
@@ -779,15 +763,18 @@ static ssize_t fsa9485_uart_sel_store(struct device *dev, struct device_attribut
 	
 	
 	if (!strncmp(value,"AP",2)) {
+		
 		sprintf(buffer, "0");
 		curr_uart_path = SWITCH_AP;
 		fsa9485_uart_sel_switch_en(0);
 	}
 	 else if (!strncmp(value,"CP",2)) {
+	 	
 	 	sprintf(buffer, "1");
 		curr_uart_path = SWITCH_CP;
 		fsa9485_uart_sel_switch_en(1);
 	} else {
+	
 		sprintf(buffer, "0");
 		fsa9485_uart_sel_switch_en(0);
 	}
@@ -801,101 +788,6 @@ static ssize_t fsa9485_uart_sel_store(struct device *dev, struct device_attribut
 
 }
 
-
-static ssize_t fsa9485_uart_sel_factory_show(struct device *dev,
-				struct device_attribute *attr,
-				char *buf)
-{
-	int fd;
-	char buffer[2]={0};
-	int ret;
-
-	printk(KERN_ERR "%s\n", __func__);
-
-	mm_segment_t fs = get_fs();
-	set_fs(get_ds());
-
-	if ((fd = sys_open("/data/path/uart_sel.bin", O_RDONLY,0)) < 0) {
-		printk("[FSA9480]: %s :: open failed %s ,fd=0x%x\n", __func__, "/data/path/uart_sel.bin", fd);
-		return 0;
-	}
-
-	ret = sys_read(fd, buffer, 1);
-	if(ret < 0) {
-		printk("uart_switch_show READ FAIL!\n");
-		return 0;
-	}
-	
-	sys_close(fd);
-	set_fs(fs);
-
-	printk("curr_uart_path = %d \n", curr_uart_path);
-	printk("uart_switch_show uart_sel.bin = %s \n", buffer);
-
-	if (!strncmp(buffer, "0", 1))
-	{
-	  return sprintf(buf, "AP");
-	} else if(!strncmp(buffer, "1", 1)) {
-	  return sprintf(buf, "CP");
-	}  else {
-	  return sprintf(buf, "AP");
-	}
-}
-
-
-//extern void extern_cmd_force_sleep(void);
-extern void uas_jig_force_sleep(void);
-int	force_jig_sleep = 0;
-
-//don't save the uart path in /data/path/uart_sel.bin
-static ssize_t fsa9485_uart_sel_factory_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t size)
-{
-	int fd;
-	char value[50];
-	char buffer[2]={0};
-
-	struct fsa9485_usbsw *usbsw = dev_get_drvdata(dev);
-	struct i2c_client *client = usbsw->client;
-	struct fsa9485_platform_data *pdata = usbsw->pdata;
-	
-	if (sscanf(buf, "%49s", value) != 1) {
-		pr_err("%s : Invalid value\n", __func__);
-		return -EINVAL;
-	}
-	
-	printk("%s : value = %s \n", __func__,value);	
-	printk("do not save uart path, just change \n", buffer);
-	
-	if (!strncmp(value,"pgmsleep",8)) {
-		fsa9485_ap_cp_int1_en(0);
-		fsa9485_pda_active_en(0);
-
-		force_jig_sleep = 1;
-		printk("cmd_force_sleep!\n");
-
-		if (pdata->uart_cb)
-			pdata->uart_cb(FSA9485_DETACHED);
-
-		uart_connecting = 0;
-
-		//uas_jig_force_sleep();
-		//extern_cmd_force_sleep();
-
-		return size;
-	}
-	else
-	{
-		if (!strncmp(value,"AP",2)) {
-			fsa9485_uart_sel_switch_en(0);
-		} else if (!strncmp(value,"CP",2)) {
-			fsa9485_uart_sel_switch_en(1);
-		} else {
-			fsa9485_uart_sel_switch_en(0);
-		}
-	}
-
-	return size;
-}
 
 static ssize_t fsa9485_usb_sel_show(struct device *dev,
 				struct device_attribute *attr,
@@ -927,10 +819,11 @@ static ssize_t fsa9485_usb_sel_show(struct device *dev,
 	printk("curr_usb_path = %d \n", curr_usb_path);
 	printk("usb_switch_show usb_sel.bin = %s \n",buffer);
 
-
-	if (!strncmp(buffer, "0", 1)) {
+	
+	if (!strncmp(buffer, "1", 1))
+	{
 		return sprintf(buf, "PDA");
-	}  else if (!strncmp(buffer, "1", 1)) {
+	}  else if (!strncmp(buffer, "0", 1)) {
 		return sprintf(buf, "MODEM");
 	} else {
 		return sprintf(buf, "PDA");
@@ -957,36 +850,37 @@ static ssize_t fsa9485_usb_sel_store(struct device *dev, struct device_attribute
 	mm_segment_t fs = get_fs();
 	set_fs(get_ds());
 
-	if ((fd = sys_open("/data/path/usb_sel.bin", O_CREAT|O_WRONLY  ,0666)) < 0)
+	if ((fd = sys_open("/data/path/usb_sel.bin", O_CREAT|O_WRONLY  ,0664)) < 0)
 	{ 
 		printk("[FSA9480]: %s :: open failed %s ,fd=0x%x\n",__func__,"/data/path/usb_sel.bin",fd);
 	} else {
 		printk("[FSA9480]: %s :: open success %s ,fd=0x%x\n",__func__,"/data/path/usb_sel.bin",fd);
 	}
 
-
+	
 
     if (!strncmp(value,"PDA",3)) {
-        if(curr_usb_path != SWITCH_AP){
-			fsa9485_cp2_usb_on_en(0);
-			sprintf(buffer, "0");
-			fsa9485_set_switch("DHOST");
-			curr_usb_path = SWITCH_AP;
-		}
-	} else if (!strncmp(value,"MODEM",5)) {
-        if( curr_usb_path != SWITCH_CP) {
-			fsa9485_cp2_usb_on_en(1);
-			sprintf(buffer, "1");
-			fsa9485_set_switch("VAUDIO");
-			curr_usb_path = SWITCH_CP;
-        }
+		if(curr_usb_path != SWITCH_AP){ 
+		fsa9485_cp2_usb_on_en(0);
+		sprintf(buffer, "1");
+		fsa9485_set_switch("DHOST");
+		curr_usb_path = SWITCH_AP;		
+	} 		
+	} 		
+	 else if (!strncmp(value,"MODEM",5)) {		
+	 	if( curr_usb_path != SWITCH_CP) {
+		fsa9485_cp2_usb_on_en(1);
+		sprintf(buffer, "0");		
+		fsa9485_set_switch("VAUDIO");
+		curr_usb_path = SWITCH_CP;		
+ 		}
 	} else {
 		fsa9485_set_switch("AUTO");
 	}
 
 	sys_write(fd,buffer,strlen(buffer));
 
-	sys_close(fd);
+	sys_close(fd); 
 	set_fs(fs);
 
 	return size;
@@ -1003,7 +897,6 @@ static DEVICE_ATTR(adc, S_IRUGO, fsa9485_show_adc, NULL);
 static DEVICE_ATTR(reset_switch, S_IWUSR | S_IWGRP, NULL, fsa9485_reset);
 #if defined(CONFIG_SEC_DUAL_MODEM)
 static DEVICE_ATTR(uart_sel, S_IRUGO | S_IWUSR | S_IWGRP, fsa9485_uart_sel_show, fsa9485_uart_sel_store);
-static DEVICE_ATTR(uart_sel_factory, S_IRUGO | S_IWUGO, fsa9485_uart_sel_factory_show, fsa9485_uart_sel_factory_store);
 static DEVICE_ATTR(usb_sel, S_IRUGO | S_IWUSR | S_IWGRP, fsa9485_usb_sel_show, fsa9485_usb_sel_store);
 #endif
 
@@ -1318,30 +1211,20 @@ static int fsa9485_detect_dev(struct fsa9485_usbsw *usbsw)
 			}
 		}	/* UART */ 
 		else if (val1 & DEV_T1_UART_MASK || val2 & DEV_T2_UART_MASK) {
-#if defined(CONFIG_SEC_DUAL_MODEM)
-			if(force_jig_sleep == 0) {
-#endif
-				uart_connecting = 1;
-				dev_info(&client->dev, "uart connect\n");
-				fsa9485_write_reg(client,FSA9485_REG_CTRL, 0x1E);
-				if (pdata->uart_cb)
-					pdata->uart_cb(FSA9485_ATTACHED);
-#if defined(CONFIG_SEC_DUAL_MODEM)
-				if( val2 & DEV_T2_UART_MASK )
-				{
-					fsa9485_ap_cp_int1_en(1);				
-				}				
-#endif
-				if (usbsw->mansw) {
-					ret = fsa9485_write_reg(client,
-						FSA9485_REG_MANSW1, SW_UART);
+			uart_connecting = 1;
+			dev_info(&client->dev, "uart connect\n");
+			fsa9485_write_reg(client,FSA9485_REG_CTRL, 0x1E);
+			if (pdata->uart_cb)
+				pdata->uart_cb(FSA9485_ATTACHED);
 
-					if (ret < 0)
-						dev_err(&client->dev,"%s: err %d\n", __func__, ret);
-				}
-#if defined(CONFIG_SEC_DUAL_MODEM)
+			if (usbsw->mansw) {
+				ret = fsa9485_write_reg(client,
+					FSA9485_REG_MANSW1, SW_UART);
+
+				if (ret < 0)
+					dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 			}
-#endif		
+		
 		}/* CHARGER */ 
 		else if (val1 & DEV_T1_CHARGER_MASK) {
 			dev_info(&client->dev, "charger connect\n");
@@ -1494,13 +1377,6 @@ static int fsa9485_detect_dev(struct fsa9485_usbsw *usbsw)
 				pdata->uart_cb(FSA9485_DETACHED);
 			uart_connecting = 0;
 			dev_info(&client->dev, "[FSA9485] uart disconnect\n");
-
-#if defined(CONFIG_SEC_DUAL_MODEM)
-			if( val2 & DEV_T2_UART_MASK )
-			{
-				fsa9485_ap_cp_int1_en(0);				
-			}
-#endif
 
 		/* CHARGER */
 		} else if (usbsw->dev1 & DEV_T1_CHARGER_MASK) {
@@ -1898,8 +1774,8 @@ static void sec_switch_init_work(struct work_struct *work)
 	mm_segment_t fs = get_fs();
 	set_fs(get_ds());
 
-	if ((fd_usb = sys_open("/data/path/usb_sel.bin", O_CREAT|O_RDWR  ,0666)) < 0 ||
-		(fd_uart = sys_open("/data/path/uart_sel.bin", O_CREAT|O_RDWR  ,0666)) < 0)
+	if ((fd_usb = sys_open("/data/path/usb_sel.bin", O_CREAT|O_RDWR  ,0664)) < 0 ||
+		(fd_uart = sys_open("/data/path/uart_sel.bin", O_CREAT|O_RDWR  ,0664)) < 0)
 	{ 
 		schedule_delayed_work(&wq->work_q, msecs_to_jiffies(2000));
 		printk("[FSA9485]: %s :: open failed %s ,fd=0x%x\n",__func__,"/data/path/usb_sel.bin",fd_usb);
@@ -1956,22 +1832,22 @@ static void sec_switch_init_work(struct work_struct *work)
 
 	printk("usb buffer : %c\n", buffer);
 
-	if (!strcmp(buffer, "0"))
+	if (!strcmp(buffer, "1"))
 	{
-		printk("sec_switch_init_work usb PDA\n");
+		printk("sec_switch_init_work usb PDA\n");		
 		fsa9485_cp2_usb_on_en(0);
 		fsa9485_set_switch("DHOST");
-		curr_usb_path = SWITCH_AP;
-	} else if(!strcmp(buffer, "1")){
-		printk("sec_switch_init_work usb MODEM\n");
+		curr_usb_path = SWITCH_AP;		
+	} else 	if(!strcmp(buffer, "0")){
+		printk("sec_switch_init_work usb MODEM\n");			
 		fsa9485_cp2_usb_on_en(1);
 		fsa9485_set_switch("VAUDIO");
-		curr_usb_path = SWITCH_CP;
+		curr_usb_path = SWITCH_CP;	
 	} else {
-		printk("sec_switch_init_work usb PDA in else\n");
+		printk("sec_switch_init_work usb PDA in else\n");		
 		fsa9485_cp2_usb_on_en(0);
 		fsa9485_set_switch("DHOST");
-		curr_usb_path = SWITCH_AP;
+		curr_usb_path = SWITCH_AP;	
 	}
 
 	sys_close(fd_uart);
@@ -2087,13 +1963,6 @@ static int __devinit fsa9485_probe(struct i2c_client *client,
 
 #if defined(CONFIG_SEC_DUAL_MODEM)
 	ret = device_create_file(switch_dev, &dev_attr_uart_sel);
-	if (ret < 0) {
-		dev_err(&client->dev,
-			"Failed to create device (usb_state)!\n");
-		goto err_create_file_state;
-	}
-
-	ret = device_create_file(switch_dev, &dev_attr_uart_sel_factory);
 	if (ret < 0) {
 		dev_err(&client->dev,
 			"Failed to create device (usb_state)!\n");

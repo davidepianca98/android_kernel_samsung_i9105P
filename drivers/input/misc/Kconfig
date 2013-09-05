@@ -543,8 +543,4 @@ config KONA_HEADSET_MULTI_BUTTON
           Activate Kona headset driver with multi button support
 endchoice
 
-config FIVE_PIN_EARJACK_SUPPORT
-	tristate "For 5PIN earjack"
-	default n
-
 endif

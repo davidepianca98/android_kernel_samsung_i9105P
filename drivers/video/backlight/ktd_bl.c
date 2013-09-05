@@ -96,40 +96,14 @@ struct brt_value{
 struct brt_value brt_table_ktd[] = {
   { MIN_BRIGHTNESS_VALUE,  32 },  /* Min pulse 32 */
    { 27,  32 },
-   { 39,  31 },
-   { 51,  29 },  
-   { 63,  27 }, 
-   { 75,  26 }, 
-   { 87,  25 }, 
-   { 99,  22 }, 
-   { 111,  20 }, 
-   { 123,  18 }, 
-   { 135,  17 }, 
-   { 147,  16 }, 
-   { 159,  16 }, 
-   { 171,  15 }, 
-   { 183,  15 },   
-   { 195,  14 },
-   { 207,  13 }, 
-   { 220,  13 }, 
-   { 230,  12 },
-   { 235,  12 },
-   { 240,  11 },
-   { MAX_BRIGHTNESS_VALUE,  10 },
-
-};
-
-struct brt_value brt_table_ktd_cabc[] = {
-  { MIN_BRIGHTNESS_VALUE,  32 },  /* Min pulse 32 */
-   { 27,  32 },
-   { 39,  31 },
+   { 39,  30 },
    { 51,  29 },  
    { 63,  28 }, 
    { 75,  27 }, 
    { 87,  26 }, 
    { 99,  24 }, 
-   { 111,  22 }, 
-   { 123,  20 }, 
+   { 111,  21 }, 
+   { 123,  19 }, 
    { 135,  19 }, 
    { 147,  18 }, 
    { 159,  17 }, 
@@ -141,7 +115,33 @@ struct brt_value brt_table_ktd_cabc[] = {
    { 230,  13 },
    { 235,  13 },
    { 240,  12 },
-   { MAX_BRIGHTNESS_VALUE,  12 },
+   { MAX_BRIGHTNESS_VALUE,  11 },
+
+};
+
+struct brt_value brt_table_ktd_cabc[] = {
+  { MIN_BRIGHTNESS_VALUE,  32 },  /* Min pulse 32 */
+   { 27,  32 },
+   { 39,  31 },
+   { 51,  30 },  
+   { 63,  29 }, 
+   { 75,  28 }, 
+   { 87,  27 }, 
+   { 99,  25 }, 
+   { 111,  23 }, 
+   { 123,  21 }, 
+   { 135,  21 }, 
+   { 147,  20 }, 
+   { 159,  19 }, 
+   { 171,  18 }, 
+   { 183,  17 },   
+   { 195,  16 },
+   { 207,  15 }, 
+   { 220,  15 }, 
+   { 230,  14 },
+   { 235,  14 },
+   { 240,  13 },
+   { MAX_BRIGHTNESS_VALUE,  13 },
 
 };
 #elif defined(CONFIG_MACH_CAPRI_SS_CRATER)

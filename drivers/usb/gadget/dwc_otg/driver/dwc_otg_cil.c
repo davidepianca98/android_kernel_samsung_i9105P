@@ -132,7 +132,7 @@ void w_init_core(void *p)
 #ifdef CONFIG_USB_OTG_UTILS
 		if (core_if->xceiver->init && (core_if->xceiver->state == OTG_STATE_UNDEFINED)){
 			otg_init(core_if->xceiver);
-			exact_mdelay(300);		
+			exact_mdelay(299);		
 
                 }
 #endif
@@ -5195,7 +5195,7 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 		}
 	}
 	while (greset.b.ahbidle == 0);
-printk("USBD][%s] 1\n",__func__);
+printk("USBD][%s] 1 timing 299\n",__func__);
 	/* Core Soft Reset */
 	count = 0;
 	greset.b.csftrst = 1;

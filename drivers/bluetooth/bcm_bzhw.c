@@ -46,7 +46,6 @@
 #define BZHW_HOST_WAKE_DEASSERT (!(BZHW_HOST_WAKE_ASSERT))
 #endif
 
-#define TIMER_PERIOD 4
 
 /* BZHW states */
 enum bzhw_states_e {
@@ -57,7 +56,6 @@ enum bzhw_states_e {
 };
 
 struct bcmbzhw_struct *priv_g;
-struct timer_list sleep_timer_bw;
 
 static int bcm_bzhw_init_clock(struct bcmbzhw_struct *priv)
 {
@@ -68,165 +66,27 @@ static int bcm_bzhw_init_clock(struct bcmbzhw_struct *priv)
 		return -1;
 	}
 	ret =
-	    pi_mgr_qos_add_request(&priv->qos_node, "bt_qos_node",
+	    pi_mgr_qos_add_request(&priv->qos_node_bw, "bt_qos_node_bw",
 				   PI_MGR_PI_ID_ARM_SUB_SYSTEM,
 				   PI_MGR_QOS_DEFAULT_VALUE);
 	if (ret < 0) {
 		pr_err
-	("%s BLUETOOTH:bt_qosNode addition failed\n", __func__);
+	("%s BLUETOOTH:bt_qosNode_bw addition failed\n", __func__);
 		return -1;
 	}
+
+	ret =
+	    pi_mgr_qos_add_request(&priv->qos_node_hw, "bt_qos_node_hw",
+				   PI_MGR_PI_ID_ARM_SUB_SYSTEM,
+				   PI_MGR_QOS_DEFAULT_VALUE);
+	if (ret < 0) {
+		pr_err
+	("%s BLUETOOTH:bt_qosNode_hw addition failed\n", __func__);
+		return -1;
+	}
+
 	pr_debug("%s BLUETOOTH:bt_qosNode SUCCESFULL\n", __func__);
 	return 0;
-}
-
-void bcm_bzhw_timer_bt_wake(unsigned long data)
-{
-	int btwake, hostwake, ret;
-	struct bcmbzhw_struct *priv = (struct bcmbzhw_struct *)data;
-	pr_debug("%s BLUETOOTH:\n", __func__);
-	btwake = gpio_get_value(priv->bzhw_data.gpio_bt_wake);
-	hostwake = gpio_get_value(priv->bzhw_data.gpio_host_wake);
-
-	if (hostwake == BZHW_HOST_WAKE_DEASSERT
-		&& btwake == BZHW_BT_WAKE_DEASSERT) {
-		pr_debug
-		("%s BLUETOOTH:DEASSERT BT_WAKE\n",
-		__func__);
-		pi_mgr_qos_request_update(&priv->qos_node,
-				      PI_MGR_QOS_DEFAULT_VALUE);
-		priv->bzhw_state = BZHW_ASLEEP;
-		del_timer(&sleep_timer_bw);
-#ifdef CONFIG_HAS_WAKELOCK
-	if (wake_lock_active(&priv_g->bzhw_data.bt_wake_lock))
-		wake_unlock(&priv_g->bzhw_data.bt_wake_lock);
-#endif
-	} else {
-		pr_debug("%s BLUETOOTH: state changed restart timer\n",
-		__func__);
-		ret = timer_pending(&sleep_timer_bw);
-		if (ret) {
-			pr_debug("%s: Bluetooth: Is timer pending : Yes\n",
-			__func__);
-		} else {
-			pr_debug("%s: Bluetooth: Is timer pending : No\n",
-				__func__);
-			ret = mod_timer(&sleep_timer_bw,
-				  jiffies + 2*TIMER_PERIOD*HZ);
-			if (ret)
-				pr_debug("%s: Bluetooth: Active timer restarted\n",
-				__func__);
-			else
-				pr_debug("%s: Bluetooth: Inactive timer restarted\n",
-				__func__);
-		}
-	}
-}
-
-void bcm_bzhw_timer_host_wake(unsigned long data)
-{
-	int hostwake;
-	int ret;
-	struct bcmbzhw_struct *priv = (struct bcmbzhw_struct *)data;
-	pr_debug("%s BLUETOOTH:\n", __func__);
-	if (priv->bzhw_state == BZHW_AWAKE_TO_ASLEEP ||
-		priv->bzhw_state == BZHW_ASLEEP_TO_AWAKE) {
-		pr_debug("%s BLUETOOTH: state is Awake to Asleep\n", __func__);
-		hostwake = gpio_get_value(priv->bzhw_data.gpio_host_wake);
-		if (hostwake == BZHW_HOST_WAKE_DEASSERT) {
-			pr_debug("%s BLUETOOTH: Asleep\n", __func__);
-			pi_mgr_qos_request_update(&priv->qos_node,
-				      PI_MGR_QOS_DEFAULT_VALUE);
-			priv->bzhw_state = BZHW_ASLEEP;
-			del_timer(&priv->sleep_timer_hw);
-			#ifdef CONFIG_HAS_WAKELOCK
-			if (wake_lock_active(&priv->bzhw_data.host_wake_lock))
-				wake_unlock(&priv->bzhw_data.host_wake_lock);
-			#endif
-
-		} else {
-			pr_err("%s BLUETOOTH: state changed Asleep to Awake\n",
-				__func__);
-			priv->bzhw_state = BZHW_ASLEEP_TO_AWAKE;
-			ret = timer_pending(&priv->sleep_timer_hw);
-		if (ret) {
-			pr_debug("%s: Bluetooth: Is timer pending : Yes\n",
-				__func__);
-		} else {
-			pr_debug("%s: Bluetooth: Is timer pending : No\n",
-				__func__);
-			ret = mod_timer(&priv->sleep_timer_hw,
-				  jiffies + TIMER_PERIOD*HZ);
-			if (ret)
-				pr_debug("%s: Bluetooth: Active timer deleted\n",
-					__func__);
-		       else
-				pr_debug("%s: Bluetooth: Inactive timer deleted\n",
-					__func__);
-		   }
-		}
-	} else if (priv->bzhw_state == BZHW_ASLEEP) {
-		pr_debug("%s BLUETOOTH: Already sleeping make sure qos node is released\n",
-			__func__);
-		pi_mgr_qos_request_update(&priv->qos_node,
-			PI_MGR_QOS_DEFAULT_VALUE);
-		del_timer(&priv->sleep_timer_hw);
-		#ifdef CONFIG_HAS_WAKELOCK
-			if (wake_lock_active(&priv->bzhw_data.host_wake_lock))
-				wake_unlock(&priv->bzhw_data.host_wake_lock);
-		#endif
-	} else {
-	hostwake = gpio_get_value(priv->bzhw_data.gpio_host_wake);
-	if (hostwake == BZHW_HOST_WAKE_DEASSERT) {
-		pr_debug("%s BLUETOOTH: change state to Awake to Asleep\n",
-			__func__);
-		priv->bzhw_state = BZHW_AWAKE_TO_ASLEEP;
-		ret = timer_pending(&priv->sleep_timer_hw);
-		if (ret) {
-			pr_debug("%s: Bluetooth: Is timer pending : Yes\n",
-				__func__);
-		} else {
-		pr_debug("%s: Bluetooth: Is timer pending : No\n",
-			__func__);
-		ret = mod_timer(&priv->sleep_timer_hw,
-			jiffies + 2*TIMER_PERIOD*HZ);
-		if (ret)
-			pr_debug("%s: Bluetooth: Active timer deleted\n",
-				__func__);
-		 else
-			pr_debug("%s: Bluetooth: Inactive timer deleted\n",
-					__func__);
-		}
-	} else if (hostwake == BZHW_HOST_WAKE_ASSERT) {
-			pr_debug("%s BLUETOOTH: change state to Awake\n",
-				__func__);
-		#ifdef CONFIG_HAS_WAKELOCK
-		if (!(wake_lock_active(&priv->bzhw_data.host_wake_lock)))
-			wake_lock(&priv->bzhw_data.host_wake_lock);
-		#endif
-			pi_mgr_qos_request_update(&priv->qos_node,
-				      0);
-			priv->bzhw_state = BZHW_AWAKE;
-		} else {
-			pr_debug("%s BLUETOOTH: Timer restarted\n", __func__);
-			ret = timer_pending(&priv->sleep_timer_hw);
-			if (ret) {
-				pr_debug("%s: Bluetooth: Is timer pending : Yes\n",
-					__func__);
-			} else {
-				pr_debug("%s: Bluetooth: Is timer pending:No\n",
-					__func__);
-				ret = mod_timer(&priv->sleep_timer_hw,
-					  jiffies + 4*TIMER_PERIOD*HZ);
-				if (ret)
-					pr_debug("%s: Bluetooth: Active timer deleted\n",
-						__func__);
-				else
-					pr_debug("%s: Bluetooth: Inactive timer deleted\n",
-						__func__);
-			}
-		}
-	}
 }
 
 
@@ -277,9 +137,6 @@ int bcm_bzhw_assert_bt_wake(int bt_wake_gpio, struct pi_mgr_qos_node *lqos_node,
 	}
 	state = tty->driver_data;
 	port = state->uart_port;
-	gpio_set_value(bt_wake_gpio, BZHW_BT_WAKE_ASSERT);
-	pr_debug("%s BLUETOOTH:ASSERT BT_WAKE\n", __func__);
-
 #ifdef CONFIG_HAS_WAKELOCK
 	if (priv_g != NULL) {
 		if (!wake_lock_active(&priv_g->bzhw_data.bt_wake_lock))
@@ -287,40 +144,45 @@ int bcm_bzhw_assert_bt_wake(int bt_wake_gpio, struct pi_mgr_qos_node *lqos_node,
 	}
 #endif
 	rc = pi_mgr_qos_request_update(lqos_node, 0);
-
+	 gpio_set_value(bt_wake_gpio, BZHW_BT_WAKE_ASSERT);
+	pr_debug("%s BLUETOOTH:ASSERT BT_WAKE\n", __func__);
 	return 0;
 }
 
 int bcm_bzhw_deassert_bt_wake(int bt_wake_gpio, int host_wake_gpio)
 {
-	int ret;
-	pr_debug("%s BLUETOOTH:DEASSERT BT_WAKE\n", __func__);
-	gpio_set_value(bt_wake_gpio, BZHW_BT_WAKE_DEASSERT);
-	if (gpio_get_value(host_wake_gpio) == BZHW_HOST_WAKE_DEASSERT) {
-		ret = timer_pending(&sleep_timer_bw);
-		if (ret) {
-			pr_debug("%s: Bluetooth: Is timer pending Yes, so do nothing\n",
-			__func__);
-		#ifdef CONFIG_HAS_WAKELOCK
-		if (priv_g != NULL) {
-			if (wake_lock_active(&priv_g->bzhw_data.bt_wake_lock))
-				wake_unlock(&priv_g->bzhw_data.bt_wake_lock);
-			}
-			#endif
-		} else {
-			pr_debug("%s: Bluetooth: Is timer pending : No\n",
-				__func__);
-			ret = mod_timer(&sleep_timer_bw,
-				  jiffies + 3*TIMER_PERIOD*HZ);
-			if (ret)
-				pr_debug("%s: Bluetooth: Active timer modified\n",
-				__func__);
-			else
-				pr_debug("%s: Bluetooth: Inactive timer modified\n",
-				__func__);
-		}
+	int host_wake=-1;
+	if (bt_wake_gpio == -1) {
+		pr_err("%s: bt_wake_gpio=%d\n", __func__,
+		       bt_wake_gpio);
+		return -EFAULT;
 	}
+
+	gpio_set_value(bt_wake_gpio, BZHW_BT_WAKE_DEASSERT);
+	
+	host_wake = gpio_get_value(priv_g->bzhw_data.gpio_host_wake);
+	if(host_wake == BZHW_HOST_WAKE_DEASSERT) {
+	   pr_debug("BLUETOOTH:DEASSERT BT_WAKE; no activity on host wake also so cleanup\n");
+	pi_mgr_qos_request_update(&priv_g->qos_node_hw, PI_MGR_QOS_DEFAULT_VALUE);
+#ifdef CONFIG_HAS_WAKELOCK
+	if (priv_g != NULL) {
+		if (wake_lock_active(&priv_g->bzhw_data.host_wake_lock))
+			wake_unlock(&priv_g->bzhw_data.host_wake_lock);
+	}
+#endif
+	}
+
+	pr_debug("BLUETOOTH:DEASSERT BT_WAKE\n");
+	pi_mgr_qos_request_update(&priv_g->qos_node_bw, PI_MGR_QOS_DEFAULT_VALUE);
+#ifdef CONFIG_HAS_WAKELOCK
+	if (priv_g != NULL) {
+		if (wake_lock_active(&priv_g->bzhw_data.bt_wake_lock))
+			wake_unlock(&priv_g->bzhw_data.bt_wake_lock);
+	}
+#endif
+
 	return 0;
+
 }
 
 static int bcm_bzhw_init_bt_wake(struct bcmbzhw_struct *priv)
@@ -358,6 +220,7 @@ static void bcm_bzhw_clean_bt_wake(struct bcmbzhw_struct *priv)
 static irqreturn_t bcm_bzhw_host_wake_isr(int irq, void *dev)
 {
 	unsigned int host_wake;
+	unsigned int bt_wake;
 	unsigned long flags;
 	int ret = -1;
 	struct bcmbzhw_struct *priv = (struct bcmbzhw_struct *)dev;
@@ -374,24 +237,35 @@ static irqreturn_t bcm_bzhw_host_wake_isr(int irq, void *dev)
 	if (!wake_lock_active(&priv->bzhw_data.host_wake_lock))
 		wake_lock(&priv->bzhw_data.host_wake_lock);
 #endif
-		ret = pi_mgr_qos_request_update(&priv->qos_node, 0);
+		ret = pi_mgr_qos_request_update(&priv->qos_node_hw, 0);
 		priv->bzhw_state = BZHW_AWAKE;
 		spin_unlock_irqrestore(&priv->bzhw_lock, flags);
 	} else {
 		pr_debug("%s BLUETOOTH: hostwake ISR DeAssert\n", __func__);
 		host_wake = gpio_get_value(priv->bzhw_data.gpio_host_wake);
-		if (BZHW_HOST_WAKE_DEASSERT == host_wake) {
-		if (priv->bzhw_state == BZHW_ASLEEP) {
+		bt_wake = gpio_get_value(priv->bzhw_data.gpio_bt_wake);
+		if(bt_wake == BZHW_BT_WAKE_ASSERT){
+			pr_debug("%s BLUETOOTH: hostwake ISR DeAssert but BT_Wake is asserted high so let BT Wake handle this \n", __func__);
 			spin_unlock_irqrestore(&priv->bzhw_lock, flags);
 		} else {
-			priv->bzhw_state = BZHW_AWAKE_TO_ASLEEP;
-			mod_timer(&priv->sleep_timer_hw,
-				jiffies + TIMER_PERIOD*HZ);
-		spin_unlock_irqrestore(&priv->bzhw_lock, flags);
-		}
-		}else {
-		pr_debug("%s BLUETOOTH: hostwake ISR DeAssert: host wake state changed\n", __func__);
-		spin_unlock_irqrestore(&priv->bzhw_lock, flags);
+			if (priv->bzhw_state == BZHW_ASLEEP) {
+			       pr_debug("%s BLUETOOTH: hostwake already sleeping \n", __func__);
+   				#ifdef CONFIG_HAS_WAKELOCK
+				if (wake_lock_active(&priv->bzhw_data.host_wake_lock))
+					wake_unlock(&priv->bzhw_data.host_wake_lock);
+				#endif
+				   spin_unlock_irqrestore(&priv->bzhw_lock, flags);
+			} else {
+			       pr_debug("%s BLUETOOTH: hostwake idr ready to sleep \n", __func__);
+				pi_mgr_qos_request_update(&priv->qos_node_hw,
+				      PI_MGR_QOS_DEFAULT_VALUE);
+				priv->bzhw_state = BZHW_ASLEEP;
+				#ifdef CONFIG_HAS_WAKELOCK
+				if (wake_lock_active(&priv->bzhw_data.host_wake_lock))
+					wake_unlock(&priv->bzhw_data.host_wake_lock);
+				#endif
+				spin_unlock_irqrestore(&priv->bzhw_lock, flags);
+			}
 		}
 	}
 	return IRQ_HANDLED;
@@ -454,17 +328,7 @@ struct bcmbzhw_struct *bcm_bzhw_start(struct tty_struct* tty)
 		}
 		priv_g->bzhw_data.host_irq = rc;
 		priv_g->bzhw_state = BZHW_AWAKE;
-		init_timer(&priv_g->sleep_timer_hw);
-		priv_g->sleep_timer_hw.expires =
-				jiffies + 2*TIMER_PERIOD*HZ;
-		priv_g->sleep_timer_hw.data = (unsigned long)priv_g;
-		priv_g->sleep_timer_hw.function = bcm_bzhw_timer_host_wake;
 
-		init_timer(&sleep_timer_bw);
-		sleep_timer_bw.expires =
-			jiffies + 3*TIMER_PERIOD*HZ;
-		sleep_timer_bw.data = (unsigned long)priv_g;
-		sleep_timer_bw.function = bcm_bzhw_timer_bt_wake;
 		pr_debug("%s: BLUETOOTH: request_irq host_irq=%d\n",
 			__func__, priv_g->bzhw_data.host_irq);
 		rc = request_irq(
@@ -499,10 +363,12 @@ void bcm_bzhw_stop(struct bcmbzhw_struct *hw_val)
 	pr_debug("%s: BLUETOOTH: hw_val->bzhw_data.host_irq=%d\n",
 		__func__, hw_val->bzhw_data.host_irq);
 	hw_val->bzhw_state = BZHW_ASLEEP;
-	del_timer(&hw_val->sleep_timer_hw);
-	del_timer(&sleep_timer_bw);
-	pi_mgr_qos_request_update(&hw_val->qos_node,
+
+	pi_mgr_qos_request_update(&hw_val->qos_node_bw,
 				    PI_MGR_QOS_DEFAULT_VALUE);
+	pi_mgr_qos_request_update(&hw_val->qos_node_hw,
+				    PI_MGR_QOS_DEFAULT_VALUE);
+
 	if (wake_lock_active(&hw_val->bzhw_data.host_wake_lock))
 		wake_unlock(&hw_val->bzhw_data.host_wake_lock);
 
@@ -549,12 +415,16 @@ static int bcm_bzhw_remove(struct platform_device *pdev)
 		(struct bcm_bzhw_platform_data *)pdev->dev.platform_data;
 
 	if (pdata) {
-		del_timer(&priv_g->sleep_timer_hw);
 		bcm_bzhw_clean_bt_wake(priv_g);
 		bcm_bzhw_clean_host_wake(priv_g);
-		if (pi_mgr_qos_request_remove(&priv_g->qos_node))
-			pr_info("%s failed to unregister qos client\n",
+		if (pi_mgr_qos_request_remove(&priv_g->qos_node_bw))
+			pr_info("%s failed to unregister qos_bw client\n",
 				__func__);
+
+		if (pi_mgr_qos_request_remove(&priv_g->qos_node_hw))
+			pr_info("%s failed to unregister qos_hw client\n",
+				__func__);
+
 	}
 	kfree(priv_g);
 	return 0;

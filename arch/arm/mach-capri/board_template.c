@@ -298,6 +298,7 @@ extern int capri_wifi_status_register(void (*callback) (int card_present, void *
 #endif
 
 #if defined(CONFIG_SENSORS_GP2A030)
+static void gp2a_power_on(int onoff);
 static void gp2a_led_onoff(int onoff);
 #endif
 
@@ -775,18 +776,6 @@ static void __init board_add_headsetdet_device(void)
 /*
  * Default table used if the platform does not pass one
  */ 
-
-#if defined(CONFIG_MACH_CAPRI_SS_CRATER)
-static unsigned int  capriss_button_adc_values [3][2] = 
-{
-	/* SEND/END Min, Max*/
-        {0,     125},
-	/* Volume Up  Min, Max*/
-        {126,    240},
-	/* Volue Down Min, Max*/
-        {241,   550},
-};
-#else
 static unsigned int  capriss_button_adc_values [3][2] = 
 {
 	/* SEND/END Min, Max*/
@@ -796,7 +785,6 @@ static unsigned int  capriss_button_adc_values [3][2] =
 	/* Volue Down Min, Max*/
         {241,   550},
 };
-#endif
 
 #if defined(CONFIG_MACH_CAPRI_M500)
 static unsigned int caprim500_button_adc_values[3][2] = {
@@ -2671,20 +2659,33 @@ static struct cm3663_platform_data cm3663_pdata = {
 #endif
 
 #if defined (CONFIG_SENSORS_GP2A030)
-enum {
-	GP2AP020 = 0,
-	GP2AP030,
-};
+static int gp2a_get_threshold(void)
+{
+	int new_threshold = 7; /* LTH value */
+
+	//if (system_rev == 2)	/* U1HD Linchbox board is not calibrated */
+	new_threshold = 100;
+
+	return new_threshold;
+}
    
 #define GPIO_PS_ALS_INT 59
 #define GPIO_PROXI_EN 122
 
-static struct gp2ap030_pdata gp2a_data = {
+static struct gp2a_platform_data gp2a_platform_data = {
 	.p_out = GPIO_PS_ALS_INT,
     	.power_gpio = GPIO_PROXI_EN,        
-    	.led_on	= gp2a_led_onoff,
-	.version = GP2AP030,
-	.prox_cal_path = "/efs/prox_cal"
+    	.power_on = gp2a_power_on,
+    	.gp2a_led_on	= gp2a_led_onoff,
+    	.gp2a_get_threshold = gp2a_get_threshold,
+};
+
+static struct platform_device opt_gp2a = {
+	.name = "gp2a-opt",
+	.id = -1,
+	.dev = {
+	 		.platform_data = &gp2a_platform_data,
+	},
 };
 #endif
 
@@ -2700,8 +2701,7 @@ static struct i2c_board_info __initdata sensor1_i2c_gpio_board_info[] = {
 
 #if defined (CONFIG_SENSORS_GP2A030)
 	{
-		I2C_BOARD_INFO("gp2a030", 0x72>>1),
-		.platform_data = &gp2a_data,
+		I2C_BOARD_INFO("gp2a", 0x72>>1),
 	},
 #endif
 
@@ -2709,6 +2709,47 @@ static struct i2c_board_info __initdata sensor1_i2c_gpio_board_info[] = {
 
 
 #if defined(CONFIG_SENSORS_GP2A030)
+static struct regulator *prox_regulator=NULL;
+
+static void gp2a_power_on(int onoff)
+{
+	/* Power On */
+	int ret=0;
+
+	printk(KERN_INFO "[GP2A] %s called",__func__); 
+
+	if (!prox_regulator) {
+		/* regulator init */
+		prox_regulator = regulator_get(NULL, "mmcldo1_uc");
+		if (IS_ERR(prox_regulator))
+		{
+		    printk(KERN_ERR "[GP2A] can not get prox_regulator (ALS_VDD_2.8V) \n");
+		    return ;
+		}
+
+		ret = regulator_set_voltage(prox_regulator,2800000,2800000);	
+		printk(KERN_INFO "[GP2A] regulator_set_voltage : %d\n", ret);        
+	}
+
+	if (onoff) {
+		ret = regulator_enable(prox_regulator);
+		if (ret)
+		{
+		    printk(KERN_ERR "[GP2A] cregulator enable failed (ALS_VDD_2.8V) \n");
+		    return ;
+		}
+		printk(KERN_INFO "[GP2A] regulator_enable : %d\n", ret);
+	} else {
+		ret = regulator_disable(prox_regulator);
+		if (ret)
+		{
+		    printk(KERN_ERR "[GP2A] cregulator disable failed (ALS_VDD_2.8V) \n");
+		    return ;
+		}
+		printk(KERN_INFO "[GP2A] regulator_disable : %d\n", ret);
+	}
+}
+
 static void gp2a_led_onoff(int onoff)
 {
 	if (onoff) {	
@@ -3270,30 +3311,6 @@ struct spa_temp_tb batt_temp_tb[]=
 	{48 ,  700},            /* 70  */
 	{34 ,  800},            /* 80  */
 };
-#elif defined(CONFIG_MACH_CAPRI_SS_CRATER)
-struct spa_temp_tb batt_temp_tb[]=
-{
-	{869, -300},            /* -30 */
-	{754, -200},			/* -20 */
-	{639, -100},                    /* -10 */
-	{573, -50},			/* -5 */
-	{506,   0},                    /* 0   */
-	{442,   50},                    /* 0   */
-	{380,  100},                    /* 10  */
-	{323,  150},                    /* 10  */
-	{267,  200},                    /* 20  */
-	{229,  250},                    /* 25  */
-	{194,  300},                    /* 30  */
-	{163,  350},                    /* 30  */
-	{137,  400},                    /* 40  */
-	{114,  450},                    /* 40  */
-	{97 ,  500},                    /* 50  */
-	{81 ,  550},                    /* 50  */
-	{68 ,  600},                    /* 60  */
-	{57 ,  650},                    /* 65  */
-	{48 ,  700},            /* 70  */
-	{34 ,  800},            /* 80  */
-};
 #else
 struct spa_temp_tb batt_temp_tb[]=
 {
@@ -3330,7 +3347,6 @@ struct spa_power_data spa_power_pdata=
 	.charging_cur_wall=1200,
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 	.backcharging_time = 40, //mins
-	.recharging_eoc = 40, // mA
 #endif
 #else	
 	.eoc_current=100,
@@ -3389,7 +3405,7 @@ static void __init add_devices(void)
 #endif
 
 #if defined(CONFIG_LEDS_GPIO) || defined(CONFIG_LEDS_GPIO_MODULE)
-	//board_add_led_device();
+	board_add_led_device();
 #endif
 
 #if defined(CONFIG_BCM_HEADSET_SW)
@@ -3486,6 +3502,10 @@ static void __init add_devices(void)
 	platform_device_register(&spa_ps_device);
 #endif
 
+#if defined(CONFIG_SENSORS_GP2A030)
+	platform_device_register(&opt_gp2a);
+#endif
+		
 }
 
 static void capri_poweroff(void)

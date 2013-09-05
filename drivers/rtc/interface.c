@@ -370,36 +370,14 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	if (alarm->enabled) {
 		err = rtc_timer_enqueue(rtc, &rtc->aie_timer);
 	}
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
+	else
+		err = rtc->ops->set_alarm(rtc->dev.parent, alarm);
+#endif
 	mutex_unlock(&rtc->ops_lock);
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_set_alarm);
-
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-int rtc_set_alarm_boot(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
-{
-	int err;
-
-	err = rtc_valid_tm(&alarm->time);
-
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
-
-	if (!rtc->ops)
-		err = -ENODEV;
-	else if (!rtc->ops->set_alarm)
-		err = -EINVAL;
-	else
-		err = rtc->ops->set_alarm_boot(rtc->dev.parent, alarm);
-	printk("%s : tm(%d %04d.%02d.%02d %02d:%02d:%02d)\n", __func__,alarm->enabled,
-			alarm->time.tm_year, alarm->time.tm_mon, alarm->time.tm_mday, alarm->time.tm_hour, alarm->time.tm_min, alarm->time.tm_sec);
-
-	mutex_unlock(&rtc->ops_lock);
-	return err;
-}
-EXPORT_SYMBOL_GPL(rtc_set_alarm_boot);
-#endif
 
 /* Called once per device from rtc_device_register */
 int rtc_initialize_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)

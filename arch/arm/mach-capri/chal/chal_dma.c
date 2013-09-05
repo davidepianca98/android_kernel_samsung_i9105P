@@ -2225,9 +2225,6 @@ void chal_dma_dump_register(CHAL_CHANNEL_HANDLE handle,
 	uint8_t *startCode, *endCode, *phyAddr;
 	uint32_t count;
 
-	if (!pChanInfo->chanPhysicalAddr)
-		return;
-
 	(*fpPrint) ("\nDebugging for channel # %d\n", pChanInfo->channel);
 
 	/* Locate physical address of the micro-code */

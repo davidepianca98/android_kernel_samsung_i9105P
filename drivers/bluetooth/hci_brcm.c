@@ -201,14 +201,14 @@ static int brcm_open(struct hci_uart *hu)
 	if (hw_struct != NULL) {
 		brcm->btwake_gpio = hw_struct->pdata->gpio_bt_wake;
 		brcm->hostwake_gpio = hw_struct->pdata->gpio_host_wake;
-		brcm->lqos_node = &hw_struct->qos_node;
-	init_timer(&sleep_timer);
+		brcm->lqos_node = &hw_struct->qos_node_bw;
+		init_timer(&sleep_timer);
 		brcm->is_there_activity = 0;
 		hu->priv = brcm;
-	sleep_timer.expires = jiffies + msecs_to_jiffies(TIMER_PERIOD);
-	sleep_timer.data = (unsigned long)brcm;
-	sleep_timer.function = sleep_timer_function;
-	add_timer(&sleep_timer);
+		sleep_timer.expires = jiffies + msecs_to_jiffies(TIMER_PERIOD);
+		sleep_timer.data = (unsigned long)brcm;
+		sleep_timer.function = sleep_timer_function;
+		add_timer(&sleep_timer);
 		__brcm_bcm_serial_clock_on(hu);
 		assert_bt_wake(brcm->btwake_gpio, brcm->lqos_node, hu->tty);
 	} else {

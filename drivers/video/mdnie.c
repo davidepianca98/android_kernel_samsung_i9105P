@@ -28,7 +28,6 @@
 #include <linux/rtc.h>
  
 #include "mdnie_table.h"
-#include <linux/power_supply.h>
 
 #define TRUE 1
 #define FALSE 0 
@@ -41,12 +40,6 @@
 #define MDNIE_SUSPEND 0
 #define MDNIE_RESUME 1
  
-#if defined(CONFIG_MACH_CAPRI_SS_CRATER)
-#define LCD_LOW_TEMP_CONVERSION 0
-#else
-#define LCD_LOW_TEMP_CONVERSION 1
-#endif
-
 #define SCENARIO_IS_COLOR(scenario)	\
  	((scenario >= COLOR_TONE_1) && (scenario < COLOR_TONE_MAX))
  
@@ -877,24 +870,9 @@ void mdnie_early_suspend(struct early_suspend *h)
  	return ;
 }
  
-#if LCD_LOW_TEMP_CONVERSION
-int get_temp_from_ps_battery(void)
-{
-    struct power_supply *ps;
-    union power_supply_propval value;
-
-    ps = power_supply_get_by_name("battery");
-
-    ps->get_property(ps, POWER_SUPPLY_PROP_TEMP, &value);
-
-    return value.intval;
-
-}
-#endif
-
 void mdnie_late_resume(struct early_suspend *h)
 {
- 	u32 i, conversion;
+ 	u32 i;
  	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
 #if defined(CONFIG_FB_MDNIE_PWM)
  	struct lcd_platform_data *pd = NULL;
@@ -942,15 +920,6 @@ void mdnie_late_resume(struct early_suspend *h)
       //if(NEGATIVE_ON == mdnie->negative)
         mdelay(30);
  
-#if LCD_LOW_TEMP_CONVERSION
-      if( -50 < get_temp_from_ps_battery())
-         conversion = 0x02;
-      else
-         conversion = 0x01;
-
-      vc_display_bus_write(0,0xB4,&conversion,1);
-#endif
-
  	return ;
 }
 #endif
@@ -1148,7 +1117,7 @@ static int __init mdnie_init(void)
 {
  	return platform_driver_register(&mdnie_driver);
 }
-late_initcall_sync(mdnie_init);
+module_init(mdnie_init);
  
 static void __exit mdnie_exit(void)
 {

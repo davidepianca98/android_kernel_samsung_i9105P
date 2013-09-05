@@ -31,11 +31,7 @@
 #endif
 extern void rtc_sysfs_add_device(struct rtc_device *rtc);
 
-#if defined(CONFIG_MACH_CAPRI_SS_BAFFIN_CMCC)
-#define SEC_YEAR_BASE 			13  /* 2013 */
-#else
 #define SEC_YEAR_BASE 			12  /* 2012 */
-#endif
 
 #define BCMPMU_PRINT_ERROR (1U << 0)
 #define BCMPMU_PRINT_INIT (1U << 1)
@@ -139,21 +135,9 @@ static void bcmpmu_check_alarm_lpm(struct work_struct *work)
 
 #endif
 
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-static int 	bcm_rtc_sleep = 0; 
-static int poweron_alarm = 0; 
-static struct rtc_wkalrm poweron_tm; 
-#endif
-
 static void bcmpmu_rtc_isr(enum bcmpmu_irq irq, void *data)
 {
 	struct bcmpmu_rtc *rdata = data;
-
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-	if ( bcm_rtc_sleep == 0 ) {
-		poweron_alarm = 0; 
-	}
-#endif
 
 	switch (irq) {
 	case PMU_IRQ_RTC_ALARM:
@@ -328,114 +312,6 @@ err:
 	return ret;
 }
 
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-static int bcmpmu_reset_alarm_boot(struct device *dev)
-{
-	struct bcmpmu_rtc *rdata = dev_get_drvdata(dev);
-	int ret;
-
-	printk("%s : write alarm(%d %04d.%02d.%02d %02d:%02d:%02d)\n", __func__,poweron_tm.enabled,
-			poweron_tm.time.tm_year, poweron_tm.time.tm_mon, poweron_tm.time.tm_mday, poweron_tm.time.tm_hour,
-			poweron_tm.time.tm_min, poweron_tm.time.tm_sec);			
-
-	mutex_lock(&rdata->lock);
-	
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCYR_ALM,
-				poweron_tm.time.tm_year - 100, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCMT_ALM,
-				poweron_tm.time.tm_mon + 1, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCDT_ALM,
-				poweron_tm.time.tm_mday, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCHR_ALM,
-				poweron_tm.time.tm_hour, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCMN_ALM,
-				poweron_tm.time.tm_min, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCSC_ALM,
-				poweron_tm.time.tm_sec, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-	
-	if (poweron_tm.enabled)
-	bcmpmu_alarm_irq_enable(dev, poweron_tm.enabled);
-	
-	printk("%s : end write(%d %04d.%02d.%02d %02d:%02d:%02d)\n", __func__,poweron_tm.enabled,
-			poweron_tm.time.tm_year, poweron_tm.time.tm_mon, poweron_tm.time.tm_mday, poweron_tm.time.tm_hour,
-			poweron_tm.time.tm_min, poweron_tm.time.tm_sec);			
-err:
-	mutex_unlock(&rdata->lock);
-	return ret;
-}
-
-static int bcmpmu_set_alarm_boot(struct device *dev, struct rtc_wkalrm *alarm)
-{
-	struct bcmpmu_rtc *rdata = dev_get_drvdata(dev);
-	int ret;
-
-	printk("%s : write alarm(%d %04d.%02d.%02d %02d:%02d:%02d)\n", __func__,alarm->enabled,
-			alarm->time.tm_year, alarm->time.tm_mon, alarm->time.tm_mday, alarm->time.tm_hour,
-			alarm->time.tm_min, alarm->time.tm_sec);			
-
-	mutex_lock(&rdata->lock);
-	
-	//*poweron_tm = *alarm;
-	memcpy(&poweron_tm, alarm, sizeof(struct rtc_wkalrm));
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCYR_ALM,
-				alarm->time.tm_year - 100, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCMT_ALM,
-				alarm->time.tm_mon + 1, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCDT_ALM,
-				alarm->time.tm_mday, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCHR_ALM,
-				alarm->time.tm_hour, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCMN_ALM,
-				alarm->time.tm_min, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-
-	ret = rdata->bcmpmu->write_dev(rdata->bcmpmu, PMU_REG_RTCSC_ALM,
-				alarm->time.tm_sec, PMU_BITMASK_ALL);
-	if (unlikely(ret))
-		goto err;
-	
-	if (alarm->enabled)
-	bcmpmu_alarm_irq_enable(dev, alarm->enabled);
-	
-	printk("%s : end write(%d %04d.%02d.%02d %02d:%02d:%02d)\n", __func__,alarm->enabled,
-			alarm->time.tm_year, alarm->time.tm_mon, alarm->time.tm_mday, alarm->time.tm_hour,
-			alarm->time.tm_min, alarm->time.tm_sec);			
-err:
-	mutex_unlock(&rdata->lock);
-	return ret;
-}
-#endif
-
 static int bcmpmu_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 {
 	struct bcmpmu_rtc *rdata = dev_get_drvdata(dev);
@@ -445,12 +321,7 @@ static int bcmpmu_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		__func__,
 		alarm->time.tm_year, alarm->time.tm_mon, alarm->time.tm_mday,
 		alarm->time.tm_hour, alarm->time.tm_min, alarm->time.tm_sec);
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-	printk("%s: time=%d.%d.%d.%d.%d.%d\n",
-		__func__,
-		alarm->time.tm_year, alarm->time.tm_mon, alarm->time.tm_mday,
-		alarm->time.tm_hour, alarm->time.tm_min, alarm->time.tm_sec);
-#endif		
+
 	if (alarm->enabled == 0) {
 		bcmpmu_alarm_irq_enable(dev, 0);
 		return 0;
@@ -487,12 +358,8 @@ static int bcmpmu_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 				alarm->time.tm_sec, PMU_BITMASK_ALL);
 	if (unlikely(ret))
 		goto err;
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-	if (alarm->enabled)
-		bcmpmu_alarm_irq_enable(dev, alarm->enabled);
-#else
+
 	bcmpmu_alarm_irq_enable(dev, 1);
-#endif
 		
 err:
 	mutex_unlock(&rdata->lock);
@@ -528,9 +395,6 @@ static void bcmpmu_rtc_time_fixup(struct device *dev)
 static int bcmpmu_rtc_suspend(struct device *dev)
 {
 	pr_rtc(FLOW, "%s\n", __func__);
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-	bcm_rtc_sleep = 1; 
-#endif
 	return 0;
 }
 
@@ -551,10 +415,7 @@ static int bcmpmu_rtc_resume(struct device *dev)
 	 * driver. Hence this workaround.
 	 */
 	bcmpmu_alarm_irq_enable(dev, 0);
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-	bcm_rtc_sleep = 0; 
-	bcmpmu_reset_alarm_boot(dev); 
-#endif
+
 	return 0;
 }
 
@@ -572,9 +433,6 @@ static struct rtc_class_ops bcmpmu_rtc_ops = {
 	.read_alarm		= bcmpmu_read_alarm,
 	.set_alarm		= bcmpmu_set_alarm,
 	.alarm_irq_enable	= bcmpmu_alarm_irq_enable,
-#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
-	.set_alarm_boot 	= bcmpmu_set_alarm_boot,
-#endif
 };
 
 static int __devinit bcmpmu_rtc_probe(struct platform_device *pdev)

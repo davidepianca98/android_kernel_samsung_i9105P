@@ -551,6 +551,7 @@ static void mxt224_ta_probe(struct mxt224_data *data, bool ta_status)
 			  size_one, &value);
 	}
 	data->ta_status_pre = (bool) ta_status;
+	calibrate_chip(data);
 };
 
 static void check_chip_calibration(struct mxt224_data *data,

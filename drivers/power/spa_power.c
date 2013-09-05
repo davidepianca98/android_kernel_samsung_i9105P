@@ -574,23 +574,10 @@ static int spa_set_charge(struct spa_power_desc *spa_power_iter, unsigned int ac
 		value.intval = FIRST_CHG_CURR_ABSORBING_SHOCK;
 		ps->set_property(ps, POWER_SUPPLY_PROP_CURRENT_NOW, &value);
 
-#if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
-		// 2. eoc current
-		if( spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL )
-		{
-			value.intval = pdata->recharging_eoc;
-			ps->set_property(ps, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &value);
-		}
-		else
-		{
-		value.intval = spa_power_iter->charger_info.eoc_current;
-		ps->set_property(ps, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &value);
-		}
-#else
 		// 2. eoc current
 		value.intval = spa_power_iter->charger_info.eoc_current;
 		ps->set_property(ps, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &value);
-#endif
+
 		// 3. charging now.
 		value.intval = POWER_SUPPLY_STATUS_CHARGING;
 		ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);

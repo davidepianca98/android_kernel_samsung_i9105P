@@ -28,7 +28,6 @@
 #include <linux/gpio.h>
 #include <linux/proc_fs.h>
 
-#include <linux/pm_qos_params.h>
 
 
 #ifdef CONFIG_ARCH_KONA
@@ -105,7 +104,6 @@ typedef struct {
 struct platform_state {
 	struct timer_list suspend_failure_timer;
 	atomic_t          suspend_failure_timer_state;
-	struct pm_qos_request_list qos_request;
 
 	VCHIQ_ARM_STATE_T arm_state;
 };
@@ -122,8 +120,6 @@ struct vc_suspend_info {
 #define RESUME_FAILURE_TIMER  2
 #define TIMEOUT_FAILURE_TIMER 3
 #define SUSPEND_FAILURE_TIMER_DURATION_MS  1000
-
-#define DMA_QOS_VAL 100
 
 
 static const char *const copyright = "Copyright (c) 2011-2012 Broadcom";
@@ -215,8 +211,6 @@ vchiq_platform_init_state(VCHIQ_STATE_T *state)
 	failure_timer->function = suspend_failure_timer_callback;
 	atomic_set(&plat_state->suspend_failure_timer_state, 0);
 
-	pm_qos_add_request(&plat_state->qos_request,
-					PM_QOS_CPU_DMA_LATENCY, DMA_QOS_VAL);
 
 out:
 	return status;
@@ -326,11 +320,11 @@ vchiq_platform_handle_timeout(VCHIQ_STATE_T *state)
 	struct vc_suspend_info suspend_info;
 	stop_suspend_failure_timer(state);
 	get_vc_suspend_syms(&suspend_info);
-	vchiq_log_error(vchiq_susp_log_level,
-		"%s - ERROR VideoCore %s timed out. VC suspend stage "
-		"0x%08lx, cb func 0x%08lx", __func__,
-		state->conn_state == VCHIQ_CONNSTATE_RESUME_TIMEOUT ?
-			"RESUME" : "SUSPEND",
+		vchiq_log_error(vchiq_susp_log_level,
+			"%s - ERROR VideoCore %s timed out. VC suspend stage "
+			"0x%08lx, cb func 0x%08lx", __func__,
+			state->conn_state == VCHIQ_CONNSTATE_RESUME_TIMEOUT ?
+				"RESUME" : "SUSPEND",
 		suspend_info.suspend_stage, suspend_info.suspend_cb_func);
 	BUG();
 }
@@ -424,8 +418,6 @@ void
 vchiq_platform_paused(VCHIQ_STATE_T *state)
 {
 	VCHIQ_ARM_STATE_T *arm_state = vchiq_platform_get_arm_state(state);
-	struct platform_state *plat_state =
-				(struct platform_state *)state->platform_state;
 	unsigned int *wakeaddr_p = (unsigned int *)
 					&g_vchiq_slot_zero->platform_data[0];
 	unsigned long expiry, early_expiry;
@@ -467,11 +459,11 @@ vchiq_platform_paused(VCHIQ_STATE_T *state)
 	if (timed_out || arm_state->wake_address == 0)
 		get_vc_suspend_syms(&suspend_info);
 	if (timed_out && (arm_state->wake_address == ~0)) {
-		vchiq_log_error(vchiq_susp_log_level, "%s - ERROR: "
-			"timed out waiting for VideoCore wake address. "
-			"VC suspend stage 0x%08lx, cb func 0x%08lx",
-			__func__, suspend_info.suspend_stage,
-			suspend_info.suspend_cb_func);
+			vchiq_log_error(vchiq_susp_log_level, "%s - ERROR: "
+				"timed out waiting for VideoCore wake address. "
+				"VC suspend stage 0x%08lx, cb func 0x%08lx",
+				__func__, suspend_info.suspend_stage,
+				suspend_info.suspend_cb_func);
 		BUG();
 	}
 	vchiq_log_info(vchiq_susp_log_level, "%s - suspend continue received",
@@ -494,7 +486,6 @@ vchiq_platform_paused(VCHIQ_STATE_T *state)
 	pwr_mgr_mm_crystal_clk_is_idle(true);
 #endif
 
-	pm_qos_remove_request(&plat_state->qos_request);
 
 	write_lock_bh(&arm_state->susp_res_lock);
 	if (arm_state->wake_address == 0) {
@@ -548,8 +539,6 @@ vchiq_platform_resume(VCHIQ_STATE_T *state)
 {
 	VCHIQ_STATUS_T status = VCHIQ_SUCCESS;
 	VCHIQ_ARM_STATE_T *arm_state = vchiq_platform_get_arm_state(state);
-	struct platform_state *plat_state =
-				(struct platform_state *)state->platform_state;
 
 	vchiq_log_trace(vchiq_susp_log_level, "%s", __func__);
 
@@ -557,8 +546,6 @@ vchiq_platform_resume(VCHIQ_STATE_T *state)
 		arm_state->wake_address);
 	arm_state->resume_start_time = cpu_clock(0);
 
-	pm_qos_add_request(&plat_state->qos_request,
-					PM_QOS_CPU_DMA_LATENCY, DMA_QOS_VAL);
 
 #ifdef CONFIG_ARCH_KONA
 	/* indicate to the PMU that videocore is about to come out of reset */

@@ -85,9 +85,6 @@ typedef struct {
 	/* 0 = center framebuffer on screen.
 	 * 1 = scale framebuffer to screen */
 	uint32_t scale;
-	/* 0 = (default) pads unaligned pitch.
-	 * 1 = no pad added. */
-	uint32_t nopad;
 
 } VC_FB_ALLOC_T;
 

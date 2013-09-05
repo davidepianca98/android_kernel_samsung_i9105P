@@ -242,7 +242,7 @@ static int capri_serial_handle_irq(struct uart_port *p)
 
 static struct plat_serial8250_port uart_data[] = {
 	KONA_8250PORT(UART0, "uartb_clk", 26000000, 0),
-	KONA_8250PORT(UART1, "uartb2_clk", 14747415, 1),
+	KONA_8250PORT(UART1, "uartb2_clk", 26000000, 1),
 #ifndef CONFIG_MACH_CAPRI_FPGA
 	KONA_8250PORT(UART2, "uartb3_clk", 48000000, 2),
 	KONA_8250PORT(UART3, "uartb4_clk", 26000000, 3),

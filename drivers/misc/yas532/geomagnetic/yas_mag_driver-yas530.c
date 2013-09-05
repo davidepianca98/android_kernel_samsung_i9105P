@@ -1223,7 +1223,7 @@ yas_cdrv_term(void)
 
 #define YAS_DEFAULT_CALIB_INTERVAL     (50)    /* 50 msecs */
 #define YAS_DEFAULT_DATA_INTERVAL      (200)   /* 200 msecs */
-#define YAS_INITCOIL_INTERVAL          (3000)  /* 3 seconds */
+#define YAS_INITCOIL_INTERVAL          (500/*3000*/)  /* 3 seconds */
 #define YAS_INITCOIL_GIVEUP_INTERVAL   (180000) /* 180 seconds */
 #define YAS_DETECT_OVERFLOW_INTERVAL   (0)     /* 0 second */
 

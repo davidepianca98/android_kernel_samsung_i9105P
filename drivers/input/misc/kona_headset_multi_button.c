@@ -89,8 +89,8 @@
 #define ACCESSORY_LOOP_COUNT  (10)
 #define ADC_MAX_LOOP (5)
 #define ADC_READ_RETRY_DELAY	(50)
-#define COMP1_THRESHOLD (730)
-#define COMP2_THRESHOLD (2100)
+#define COMP1_THRESHOLD (600)
+#define COMP2_THRESHOLD (1900)
 #define WAKE_LOCK_TIME				(HZ * 5)	/* 5 sec */
 #define WAKE_LOCK_TIME_IN_SENDKEY	(HZ * 2)	/* 2 sec */
 #define PATH_FACTORYMODE "/efs/FactoryApp/factorymode"
@@ -123,9 +123,6 @@ enum hs_type {
 	HEADPHONE,    /* The one without MIC   */
 	OPEN_CABLE,   /* Not sent to userland  */
 	HEADSET,	  /* The one with MIC 	   */
-#if defined(CONFIG_MACH_CAPRI_SS_CRATER)
-	OPEN_CABLE_HEADPHONE,
-#endif
 	/* If more HS types are required to be added
 	* add here, not below HS_TYPE_MAX
 	*/
@@ -651,24 +648,11 @@ static int read_adc_for_accessory_detection(int hst)
 			else if(mic_level > BASIC_HEADSET_DETECT_LEVEL_MIN &&
 				mic_level <= BASIC_HEADSET_DETECT_LEVEL_MAX)
 			{
-				#if defined(CONFIG_MACH_CAPRI_SS_CRATER)
-					if(mic_level >= CALL_OPENCABLE_DETECT_LEVEL_MIN &&
-						!((gpio_get_value(irq_to_gpio(mic_dev->gpio_irq))) ^ mic_dev->headset_pd->hs_default_state))
-						status = OPEN_CABLE;
-					else if(mic_level >= CALL_OPENCABLE_DETECT_LEVEL_MIN &&
-						((gpio_get_value(irq_to_gpio(mic_dev->gpio_irq))) ^ mic_dev->headset_pd->hs_default_state))
-						status = OPEN_CABLE_HEADPHONE;
-					else 
-						status = HEADSET;
-					
-				#else
 				if(mic_level >= CALL_OPENCABLE_DETECT_LEVEL_MIN &&
 					!((gpio_get_value(irq_to_gpio(mic_dev->gpio_irq))) ^ mic_dev->headset_pd->hs_default_state))
 					status = OPEN_CABLE;
 				else
 					status = HEADSET;
-				#endif
-				
 			}
 
 			if(mic_dev->recheck_jack == 1)
@@ -716,27 +700,6 @@ static int read_adc_for_accessory_detection(int hst)
 			break;
 		}
 
-
-#if defined(CONFIG_MACH_CAPRI_SS_CRATER)
-		if(status == OPEN_CABLE_HEADPHONE){
-			pr_info("OPEN_CABLE_HEADPHONE\n");
-			status = HEADPHONE;
-			break;
-		}
-		else if(readl(mic_dev->aci_base + ACI_COMP_DOUT_OFFSET) & (1 << 3))
-			break;
-		else
-		{
-			adc_retry--;
-			msleep(ADC_READ_RETRY_DELAY);
-			if(!((gpio_get_value(irq_to_gpio(mic_dev->gpio_irq))) ^ mic_dev->headset_pd->hs_default_state))
-			{
-				status = OPEN_CABLE;
-				break;
-			}
-		}
-#else
-		
 		if(readl(mic_dev->aci_base + ACI_COMP_DOUT_OFFSET) & (1 << 3))
 			break;
 		else
@@ -749,7 +712,6 @@ static int read_adc_for_accessory_detection(int hst)
 				break;
 			}
 		}
-#endif
 
 	}while(adc_retry);
 

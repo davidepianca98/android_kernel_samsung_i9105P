@@ -26,14 +26,9 @@
 #ifndef __PLAT_KONA_TIMER_H
 #define __PLAT_KONA_TIMER_H
 
-/*
- * There is 5 clock cycles delay in HUB Timer by ASIC limitation. 3 ticks
- * delay for compare value to be loaded + 2 ticks delay for compare enable to
- * be synced to the clock domain
- *
- * Let's do 6 instead of 5 just to be extremely safe
+/* There is 5 clock cycles delay in HUB Timer by ASIC limitation.
  */
-#define MIN_KONA_DELTA_CLOCK     6
+#define MIN_KONA_DELTA_CLOCK     5
 
 /* On 32-bit mod timer, using large or max value 0xffffffff may trigger early
  * timer interrupt. It has to be limited to avoid timer misbehavior.

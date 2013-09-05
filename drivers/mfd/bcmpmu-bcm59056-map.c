@@ -1211,8 +1211,6 @@ static const struct bcmpmu_adc_map bcm59056_adc_map[PMU_ADC_MAX] = {
 		.dmask = 0x3FF, .vmask = 0x0000, .rtmsel = 0x00, .vrng = 0000},
 	[PMU_ADC_FG_CURRSMPL] =	{.map = 1, .addr0 = 0xB1, .addr1 = 0xB0,
 		.dmask = 0xFFFF, .vmask = 0x0000, .rtmsel = 0x00, .vrng = 0000},
-	[PMU_ADC_FG_FST_CURRSMPL] =	{.map = 1, .addr0 = 0xB3, .addr1 = 0xB2,
-		.dmask = 0xFFFF, .vmask = 0x0000, .rtmsel = 0x00, .vrng = 0000},
 	[PMU_ADC_FG_RAW] =	{.map = 1, .addr0 = 0xB5, .addr1 = 0xB4,
 		.dmask = 0xFFFF, .vmask = 0x0000, .rtmsel = 0x00, .vrng = 0000},
 	[PMU_ADC_FG_VMBATT] =	{.map = 1, .addr0 = 0xB7, .addr1 = 0xB6,

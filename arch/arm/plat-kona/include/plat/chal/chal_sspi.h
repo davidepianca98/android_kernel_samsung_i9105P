@@ -1477,15 +1477,6 @@ extern "C" {
 *****************************************************************************/
 	CHAL_SSPI_STATUS_t chal_sspi_enable_scheduler(CHAL_HANDLE handle,
 						      uint32_t off_on);
-/**
-*
-*  @brief  Function to dump SSPI registers
-*
-*  @param    handle   (in) SSPI CHAL handle
-*
-*  @return void
-*****************************************************************************/
-void chal_sspi_dump_registers(CHAL_HANDLE handle);
 
 /** @} */
 

@@ -2749,22 +2749,6 @@ peri_clk_enable_start:
 		pr_err("%s:clk_name:%s Insurance failed\n", __func__, clk->name);
 		pr_err("clk_gate[0x%x]:0x%x\n",peri_clk->clk_gate_offset, reg_val);
 
-		peri_clk_hyst_enable(peri_clk, HYST_ENABLE & clk->flags,
-				(clk->flags & HYST_HIGH) ? CLK_HYST_HIGH : CLK_HYST_LOW);
-
-		if (clk->flags & AUTO_GATE)
-			peri_clk_set_gating_ctrl(peri_clk, CLK_GATING_AUTO);
-		else
-			peri_clk_set_gating_ctrl(peri_clk, CLK_GATING_SW);
-
-		pr_err("peri_clk re-initiated\n");
-
-		if (insurance>=(insurance_max_threshold-insurance_threashold)) {
-			writel(0x1015001F, CCU_REG_ADDR(peri_clk->ccu_clk, peri_clk->clk_gate_offset));
-			reg_val = readl(CCU_REG_ADDR(peri_clk->ccu_clk, peri_clk->clk_gate_offset));
-			pr_err("%s:clk_name:%s Debug only reg = 0x%x\n", __func__, clk->name, reg_val);
-		}
-
 		if(insurance<insurance_max_threshold){
 			insurance_threashold +=1000;
 			insurance = 0;
@@ -3418,23 +3402,6 @@ bus_clk_enable_start:
 	if(insurance>=insurance_threashold){
 		pr_err("%s:clk_name:%s Insurance failed\n", __func__, clk->name);
 		pr_err("clk_gate[0x%x]:0x%x\n",bus_clk->clk_gate_offset,reg_val);
-
-		if (bus_clk->hyst_val_mask)
-			bus_clk_hyst_enable(bus_clk, HYST_ENABLE & clk->flags,
-				(clk->flags & HYST_HIGH) ? CLK_HYST_HIGH : CLK_HYST_LOW);
-
-		if (clk->flags & AUTO_GATE)
-			bus_clk_set_gating_ctrl(bus_clk, CLK_GATING_AUTO);
-		else
-			bus_clk_set_gating_ctrl(bus_clk, CLK_GATING_SW);
-
-		pr_err("bus_clk re-initiated\n");
-
-		if (insurance>=(insurance_max_threshold-insurance_threashold)) {
-			writel(0x1015001F, CCU_REG_ADDR(bus_clk->ccu_clk, bus_clk->clk_gate_offset));
-			reg_val = readl(CCU_REG_ADDR(bus_clk->ccu_clk, bus_clk->clk_gate_offset));
-			pr_err("%s:clk_name:%s Debug only reg = 0x%x\n", __func__, clk->name, reg_val);
-		}
 
 		if(insurance<insurance_max_threshold){
 			insurance_threashold +=1000;

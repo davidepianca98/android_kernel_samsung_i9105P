@@ -69,8 +69,6 @@ struct bcmpmu_adc {
 	int rtm_for_hk;
 	int rtm_upper_lmt;
 	int ntc_upper_boundary;
-	int fg_offset;
-	int fg_gain;
 };
 
 struct bcmpmu_env {
@@ -90,9 +88,6 @@ struct bcmpmu_adc_temp_cal_data {
 	int gain;
 	int offset;
 };
-
-static int bcmpmu_get_fg_currsmpl(struct bcmpmu *bcmpmu, int *data);
-static int bcmpmu_get_fg_fst_currsmpl(struct bcmpmu *bcmpmu, int *data);
 
 static int adc_map_batt_temp(struct bcmpmu_adc *padc, int adc,
 			     enum bcmpmu_adc_sig sig)
@@ -165,7 +160,6 @@ static int read_adc_result(struct bcmpmu_adc *padc, struct bcmpmu_adc_req *req)
 	case PMU_ADC_TM_HK:
 		if ((!padc->rtm_for_hk) ||
 			(req->sig == PMU_ADC_FG_CURRSMPL) ||
-			(req->sig == PMU_ADC_FG_FST_CURRSMPL) ||
 			(req->sig == PMU_ADC_FG_RAW))
 			adcmap = padc->adcmap[req->sig];
 		else
@@ -225,9 +219,7 @@ static int read_adc_result(struct bcmpmu_adc *padc, struct bcmpmu_adc_req *req)
 		return ret;
 	}
 	req->raw = val & adcmap.dmask;
-	if (req->sig == PMU_ADC_FG_RAW ||
-		req->sig == PMU_ADC_FG_CURRSMPL ||
-		req->sig == PMU_ADC_FG_FST_CURRSMPL) {
+	if (req->sig == PMU_ADC_FG_RAW || req->sig == PMU_ADC_FG_CURRSMPL) {
 		int raw_data;
 		if (req->raw & 0x8000)
 			req->raw |= 0xffff0000;
@@ -403,7 +395,6 @@ static void cnv_adc_result(struct bcmpmu_adc *padc, struct bcmpmu_adc_req *req)
 		req->cnv = adc_map_die_temp(padc, req->cal, req->sig);
 		break;
 	case PMU_ADC_FG_CURRSMPL:
-	case PMU_ADC_FG_FST_CURRSMPL:
 		{
 			int modifier = 0, ibat_to_return;
 			int reading;
@@ -495,11 +486,10 @@ static int update_adc_result(struct bcmpmu_adc *padc,
 			     struct bcmpmu_adc_req *req)
 {
 	int ret;
+	int insurance = 100;
 
 	req->raw = -EINVAL;
-	if (req->sig == PMU_ADC_FG_CURRSMPL ||
-		req->sig == PMU_ADC_FG_FST_CURRSMPL ||
-		req->sig == PMU_ADC_FG_RAW) {
+	if (req->sig == PMU_ADC_FG_CURRSMPL || req->sig == PMU_ADC_FG_RAW) {
 		ret = padc->bcmpmu->write_dev(padc->bcmpmu,
 					      PMU_REG_FG_FRZSMPL,
 					      padc->bcmpmu->
@@ -510,8 +500,18 @@ static int update_adc_result(struct bcmpmu_adc *padc,
 			return ret;
 	}
 
-	ret = read_adc_result(padc, req);/* Here we get the raw value */
-	return ret;
+	/*FG ADC channel can return negative value and -22 (-EINVAL) is a
+		valid value for FG*/
+	do {
+		ret = read_adc_result(padc, req);/* Here we get the raw value */
+		if (ret != 0)
+			return ret;
+		insurance--;
+	} while (req->raw == -EINVAL && insurance && req->sig !=
+			PMU_ADC_FG_CURRSMPL);
+
+	BUG_ON(insurance == 0 && req->raw == -EINVAL);
+	return 0;
 }
 
 static void adc_isr(enum bcmpmu_irq irq, void *data)
@@ -548,8 +548,8 @@ static int bcmpmu_adc_request(struct bcmpmu *bcmpmu, struct bcmpmu_adc_req *req)
 	int ret = -EINVAL, timeout;
 	struct pin_config StoredPinmux, TestPinMux;
 	unsigned adcsyngpio;
-	enum PIN_FUNC adcsyngpiomux;	
-	int insurance = 100;
+	enum PIN_FUNC adcsyngpiomux;
+	unsigned int rawadc;
 
 	pr_hwmon(FLOW, "%s: called: ->sig %d, tm %d, flags %d\n", __func__,
 		 req->sig, req->tm, req->flags);
@@ -561,23 +561,14 @@ static int bcmpmu_adc_request(struct bcmpmu *bcmpmu, struct bcmpmu_adc_req *req)
 		else
 			timeout = padc->adcsetting->txrx_timeout;
 
-		mutex_lock(&padc->lock);
 		switch (req->tm) {
 		case PMU_ADC_TM_HK:
-			if ((req->sig == PMU_ADC_FG_CURRSMPL) ||
-				(req->sig == PMU_ADC_FG_FST_CURRSMPL) ||
+			if ((!padc->rtm_for_hk) ||
+				(req->sig == PMU_ADC_FG_CURRSMPL) ||
 				(req->sig == PMU_ADC_FG_RAW))
 				ret = update_adc_result(padc, req);
-			else if (!padc->rtm_for_hk) {
-				do {
-					ret = update_adc_result(padc, req);
-					insurance--;
-					usleep_range(20000, 30000);
-				} while (req->raw == -EINVAL &&
-					insurance &&
-					ret == 0);
-				BUG_ON(insurance == 0 && req->raw == -EINVAL);
-			} else {
+			else {
+				mutex_lock(&padc->lock);
 				if (padc->rtm_upper_lmt != 0) {
 					padc->rtm_upper_lmt = 0;
 					usleep_range(10000, 20000);
@@ -593,16 +584,17 @@ static int bcmpmu_adc_request(struct bcmpmu *bcmpmu, struct bcmpmu_adc_req *req)
 					padc->ctrlmap[PMU_ADC_RTM_START].addr,
 					padc->ctrlmap[PMU_ADC_RTM_START].mask,
 					padc->ctrlmap[PMU_ADC_RTM_START].mask);
-				pr_hwmon(FLOW, "%s: start rtm adc\n",
-					__func__);
+				pr_hwmon(FLOW, "%s: start rtm adc\n", __func__);
 				usleep_range(2000, 2000);
 				ret = update_adc_result(padc, req);
+				mutex_unlock(&padc->lock);
 			}
 			break;
 		case PMU_ADC_TM_RTM_TX:
 		case PMU_ADC_TM_RTM_RX:
 		case PMU_ADC_TM_RTM_SW:
 		case PMU_ADC_TM_RTM_SW_TEST:
+			mutex_lock(&padc->lock);
 			padc->rtmreq = req;
 			if (req->tm == PMU_ADC_TM_RTM_SW_TEST) {
 				pinmux_find_gpio(PN_ADCSYNC, &adcsyngpio,
@@ -776,12 +768,12 @@ static int bcmpmu_adc_request(struct bcmpmu *bcmpmu, struct bcmpmu_adc_req *req)
 				gpio_free(adcsyngpio);
 				pinmux_set_pin_config(&StoredPinmux);
 			}
+			mutex_unlock(&padc->lock);
 			break;
 		case PMU_ADC_TM_MAX:
 		default:
 			ret = -EINVAL;
 		}
-		mutex_unlock(&padc->lock);
 
 		if (ret < 0)
 			return ret;
@@ -966,22 +958,12 @@ static ssize_t show_fg_currsmpl(struct device *dev, struct device_attribute
 				*devattr, char *buf)
 {
 	struct bcmpmu *bcmpmu = dev->platform_data;
-	int val;
-
-	bcmpmu_get_fg_currsmpl(bcmpmu, &val);
-
-	return sprintf(buf, "%d\n", val);
-}
-
-static ssize_t show_fg_fst_currsmpl(struct device *dev, struct device_attribute
-				*devattr, char *buf)
-{
-	struct bcmpmu *bcmpmu = dev->platform_data;
-	int val;
-
-	bcmpmu_get_fg_fst_currsmpl(bcmpmu, &val);
-
-	return sprintf(buf, "%d\n", val);
+	struct bcmpmu_adc_req req;
+	req.sig = PMU_ADC_FG_CURRSMPL;
+	req.tm = PMU_ADC_TM_HK;
+	req.flags = PMU_ADC_RAW_AND_UNIT;
+	bcmpmu->adc_req(bcmpmu, &req);
+	return sprintf(buf, "%d\n", req.cnv);
 }
 
 static ssize_t show_envupdate(struct device *dev, struct device_attribute *attr,
@@ -1024,8 +1006,6 @@ static SENSOR_DEVICE_ATTR(fg_currsmpl, S_IRUGO, show_fg_currsmpl, NULL, 8);
 static SENSOR_DEVICE_ATTR(env_all, S_IRUGO, show_envupdate, NULL, 9);
 static SENSOR_DEVICE_ATTR(fg_acc_mas, S_IRUGO, show_fg_acc_mas, NULL, 10);
 static SENSOR_DEVICE_ATTR(dietemp, S_IRUGO, show_dietemp, NULL, 11);
-static SENSOR_DEVICE_ATTR(fg_fst_currsmpl,
-			  S_IRUGO, show_fg_fst_currsmpl, NULL, 12);
 
 static struct attribute *bcmpmu_hwmon_attrs[] = {
 	&sensor_dev_attr_vmbatt.dev_attr.attr,
@@ -1037,7 +1017,6 @@ static struct attribute *bcmpmu_hwmon_attrs[] = {
 	&sensor_dev_attr_32ktemp.dev_attr.attr,
 	&sensor_dev_attr_fg_vmbatt.dev_attr.attr,
 	&sensor_dev_attr_fg_currsmpl.dev_attr.attr,
-	&sensor_dev_attr_fg_fst_currsmpl.dev_attr.attr,
 	&sensor_dev_attr_env_all.dev_attr.attr,
 	&sensor_dev_attr_fg_acc_mas.dev_attr.attr,
 	&sensor_dev_attr_dietemp.dev_attr.attr,
@@ -1095,7 +1074,14 @@ static int bcmpmu_get_fg_currsmpl(struct bcmpmu *bcmpmu, int *data)
 	struct bcmpmu_adc_req req;
 	struct bcmpmu_fg *pfg = bcmpmu->fginfo;
 	int curr;
-
+	ret = bcmpmu->write_dev(bcmpmu,
+				PMU_REG_FG_FRZSMPL,
+				bcmpmu->regmap[PMU_REG_FG_FRZSMPL].mask,
+				bcmpmu->regmap[PMU_REG_FG_FRZSMPL].mask);
+	if (ret != 0) {
+		pr_hwmon(ERROR, "%s failed to latch fg smpl.\n", __func__);
+		return ret;
+	}
 	req.sig = PMU_ADC_FG_CURRSMPL;
 	req.tm = PMU_ADC_TM_HK;
 	req.flags = PMU_ADC_RAW_AND_UNIT;
@@ -1104,62 +1090,8 @@ static int bcmpmu_get_fg_currsmpl(struct bcmpmu *bcmpmu, int *data)
 		pr_hwmon(ERROR, "%s failed to get adc result.\n", __func__);
 		return ret;
 	}
-	*data = req.cnv;
-	return ret;
-}
-
-static int bcmpmu_get_fg_fst_currsmpl(struct bcmpmu *bcmpmu, int *data)
-{
-	int ret;
-	struct bcmpmu_adc_req req;
-	struct bcmpmu_fg *pfg = bcmpmu->fginfo;
-	struct bcmpmu_adc *padc = bcmpmu->adcinfo;
-	int curr, curr_raw;
-	unsigned int val, val1;
-	static int init_read;
-
-	if (init_read == 0) {
-		ret = bcmpmu->read_dev(bcmpmu,
-			PMU_REG_FG_OFFSET0, &val, PMU_BITMASK_ALL);
-		ret |= bcmpmu->read_dev(bcmpmu,
-			PMU_REG_FG_OFFSET1, &val1, PMU_BITMASK_ALL);
-	if (ret != 0) {
-			pr_hwmon(ERROR, "%s failed to read fg offset.\n",
-				__func__);
-		return ret;
-	}
-		if ((val & 0x80) == 0)
-			padc->fg_offset = (int)(val1 | (val << 8));
-		else
-			padc->fg_offset = (int)(val1 | (val << 8) | 0XFFFF0000);
-
-		ret = bcmpmu->read_dev(bcmpmu,
-			PMU_REG_FG_GAINTRIM, &val, PMU_BITMASK_ALL);
-		if (ret != 0) {
-			pr_hwmon(ERROR, "%s failed to read fg gain.\n",
-				__func__);
-		}
-		padc->fg_gain = (int)(val | ((val & 0x80) << 8) |
-				((val & 0x80) << 9) | ((~val & 0x80) << 10));
-		padc->fg_gain = (padc->fg_gain * 10) / 1024;
-		init_read = 1;
-	}
-
-	req.sig = PMU_ADC_FG_FST_CURRSMPL;
-	req.tm = PMU_ADC_TM_HK;
-	req.flags = PMU_ADC_RAW_AND_UNIT;
-	ret = bcmpmu->adc_req(bcmpmu, &req);
-	if (ret != 0) {
-		pr_hwmon(ERROR, "%s failed to get adc result.\n", __func__);
-		return ret;
-	}
-	curr_raw = req.cnv;
-	curr = ((curr_raw - padc->fg_offset) * padc->fg_gain) / 1000;
-
-	pr_hwmon(DATA, "%s raw curr=%d, gain=%d, offset=%d, curr=%d\n",
-		__func__, curr_raw, padc->fg_gain, padc->fg_offset, curr);
-
-	*data = curr;
+	curr = req.cnv;
+	*data = (curr * pfg->fg_factor) / 1000;
 	return ret;
 }
 
@@ -1495,7 +1427,6 @@ static int __devinit bcmpmu_hwmon_probe(struct platform_device *pdev)
 		pfg->fg_factor = 1000;
 
 	pfg->bcmpmu->fg_currsmpl = bcmpmu_get_fg_currsmpl;
-	pfg->bcmpmu->fg_fst_currsmpl = bcmpmu_get_fg_fst_currsmpl;
 	pfg->bcmpmu->fg_vmbatt = bcmpmu_get_fg_vmbatt;
 	pfg->bcmpmu->fg_acc_mas = bcmpmu_get_fg_acc_mas;
 	pfg->bcmpmu->fg_enable = bcmpmu_fg_enable;

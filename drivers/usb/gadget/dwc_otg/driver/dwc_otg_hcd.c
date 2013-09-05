@@ -1237,12 +1237,14 @@ dwc_otg_transaction_type_e dwc_otg_hcd_select_transactions(dwc_otg_hcd_t * hcd)
 		/*if a qh's first qtd has null urb then free it up */
 		if (!qtd->urb) {
 			DWC_ERROR("USB Host: QTD with NULL urb! Removing bad qtd.\n");
+#if 0	//121230 To fix the NULL pointer access violation when detach OTG after cancel the file transfer		
 			DWC_CIRCLEQ_REMOVE(&qh->qtd_list, qtd, qtd_list_entry);
 			if(DWC_CIRCLEQ_EMPTY(&qh->qtd_list)) {
 				DWC_ERROR("USB Host: Empty qtd list so remove qh from list.\n");
 				DWC_LIST_REMOVE(&qh->qh_list_entry);
 				return ret_val;
 			}
+#endif			
 		}
 		assign_and_init_hc(hcd, qh);
 

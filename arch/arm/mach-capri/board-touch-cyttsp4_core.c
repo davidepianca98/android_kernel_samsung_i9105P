@@ -427,7 +427,6 @@ void __init board_tsp_init(void)
 
 	printk("[TSP] board_tsp_init\n");
 	/*turn on NLSX4373*/
-    #if 0
 	gpio = NLSX4373_EN_GPIO;
 	rc = gpio_request(gpio, "tsp_nlsx4373");
 	if (rc < 0) {
@@ -435,7 +434,6 @@ void __init board_tsp_init(void)
 		return;
 	}
 	gpio_direction_output(gpio, 1);
-    #endif
 	
 	printk(KERN_INFO"[TSP] naples_tsp_init() is called\n");
 

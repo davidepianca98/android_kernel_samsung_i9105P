@@ -34,8 +34,8 @@
 #include <linux/workqueue.h>
 #include <mach/pinmux.h>
 
-#define TC360_CUR_FW_VER	0x08
-#define TC360_FW_NAME		"tc360_08.fw"
+#define TC360_CUR_FW_VER	0x09
+#define TC360_FW_NAME		"tc360_09.fw"
 #define TC360_FW_BUILTIN_PATH	"coreriver"
 #define TC360_FW_HEADER_PATH
 #define TC360_FW_IN_SDCARD_PATH	"/mnt/sdcard/firmware/coreriver"
@@ -1700,7 +1700,7 @@ static int __devinit tc360_probe(struct i2c_client *client,
 			goto err_request_irq;
 		}
 	}
-#if 0 // jehyun temp		
+#if 0 // auto update
 	disable_irq(client->irq);
 #endif
 	ret = data->pdata->setup_power(&client->dev, true);
@@ -1719,7 +1719,7 @@ static int __devinit tc360_probe(struct i2c_client *client,
 	 * the bottom on probe function.
 	 */
 
-#if 0 // jehyun temp	 
+#if 0 // auto update 
 		
 	ret = tc360_initialize(data);
 	if (ret < 0) {

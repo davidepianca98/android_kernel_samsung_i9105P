@@ -377,9 +377,6 @@ static void spi_tx_work(void)
 		return;
 	}
 
-	if (get_console_suspended())
-		return;
-
 	if (spild->spi_state == SPI_STATE_END)
 		return;
 
@@ -438,7 +435,7 @@ static void spi_tx_work(void)
 		if (spi_tx_rx_sync((void *)spi_packet_buf, (void *)NULL,
 			SPI_MAX_PACKET_SIZE)) {
 #else
-		if (spi_tx_rx_sync((void *)spi_packet_buf, (void *)NULL,
+		if (spi_tx_rx_sync((void *)spi_packet_buf, (void *)spi_sync_buf,
 			SPI_MAX_PACKET_SIZE)) {
 #endif
 			/* TODO: save failed packet */
@@ -643,7 +640,7 @@ static void spi_rx_work(void)
 	if (spi_tx_rx_sync((void *)NULL, (void *)spi_packet_buf,
 		SPI_MAX_PACKET_SIZE) == 0) {
 #else
-	if (spi_tx_rx_sync((void *)NULL, (void *)spi_packet_buf,
+	if (spi_tx_rx_sync((void *)spi_sync_buf, (void *)spi_packet_buf,
 		SPI_MAX_PACKET_SIZE) == 0) {
 #endif
 		/* parsing SPI packet */

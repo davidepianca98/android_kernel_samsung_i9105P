@@ -1644,9 +1644,12 @@ geomagnetic_probe(struct i2c_client *client, const struct i2c_device_id *id)
         goto err;
     }
     data->threshold = YAS_DEFAULT_MAGCALIB_THRESHOLD;
-    for (i = 0; i < 3; i++) {
+    /*for (i = 0; i < 3; i++) {
         data->distortion[i] = YAS_DEFAULT_MAGCALIB_DISTORTION;
-    }
+    }*/
+	data->distortion[0] = YAS_MAGCALIB_DISTORTION_LV1;
+	data->distortion[1] = YAS_MAGCALIB_DISTORTION_LV2;
+	data->distortion[2] = YAS_MAGCALIB_DISTORTION_LV3;
     data->shape = 0;
     atomic_set(&data->enable, 0);
     for (i = 0; i < 3; i++) {

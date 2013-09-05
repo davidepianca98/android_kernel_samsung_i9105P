@@ -13,7 +13,7 @@
 * other than the GPL, without Broadcom's express prior written consent.
 *******************************************************************************/
 
-#ifndef __ASM_BCMBT_LPM_H
+#ifndef __ASM_BCMBT_LPM_H1
 #define __ASM_BCMBT_LPM_H
 
 #include <linux/serial_core.h>
@@ -33,12 +33,12 @@ struct bcm_bt_lpm_data {
 #endif
 	int bt_wake_installed;
 	int host_wake_installed;
-	int state;
+             int state;
 };
 
 enum {
-	ENABLE_LPM_TYPE_OOB_USER,
-	DISABLE_LPM,
+  ENABLE_LPM_TYPE_OOB_USER,
+  DISABLE_LPM,
 };
 
 //extern struct bcm_bt_lpm_platform_data brcm_bt_lpm_data;
@@ -67,7 +67,7 @@ extern int brcm_init_hostwake(struct bcm_bt_lpm_platform_data *gpio_data);
 #endif
 
 #ifndef HOST_WAKE_ASSERT
-#define HOST_WAKE_ASSERT 1
+#define HOST_WAKE_ASSERT 0
 #endif
 #ifndef HOST_WAKE_DEASSERT
 #define HOST_WAKE_DEASSERT (!(HOST_WAKE_ASSERT))
