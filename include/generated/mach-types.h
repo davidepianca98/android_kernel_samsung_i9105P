@@ -1144,8 +1144,11 @@ extern unsigned int __machine_arch_type;
 #define MACH_TYPE_CAPRI_STONE          2701
 #define MACH_TYPE_CAPRI_SS             2701
 #define MACH_TYPE_CAPRI_SS_S2VE        2701
+#define MACH_TYPE_CAPRI_SS_BAFFIN      2701
+#define MACH_TYPE_CAPRI_SS_CRATER      2701
 #define MACH_TYPE_CAPRI_TABLET         2701
 #define MACH_TYPE_CAPRI_M500           2701
+#define MACH_TYPE_CAPRI_GARNET         2701
 #define MACH_TYPE_CAPRI_A01            2701
 
 #ifdef CONFIG_ARCH_EBSA110
@@ -14732,6 +14735,30 @@ extern unsigned int __machine_arch_type;
 # define machine_is_capri_ss_s2ve()	(0)
 #endif
 
+#ifdef CONFIG_MACH_CAPRI_SS_BAFFIN
+# ifdef machine_arch_type
+#  undef machine_arch_type
+#  define machine_arch_type	__machine_arch_type
+# else
+#  define machine_arch_type	MACH_TYPE_CAPRI_SS_BAFFIN
+# endif
+# define machine_is_capri_ss_baffin()	(machine_arch_type == MACH_TYPE_CAPRI_SS_BAFFIN)
+#else
+# define machine_is_capri_ss_baffin()	(0)
+#endif
+
+#ifdef CONFIG_MACH_CAPRI_SS_CRATER
+# ifdef machine_arch_type
+#  undef machine_arch_type
+#  define machine_arch_type	__machine_arch_type
+# else
+#  define machine_arch_type	MACH_TYPE_CAPRI_SS_CRATER
+# endif
+# define machine_is_capri_ss_crater()	(machine_arch_type == MACH_TYPE_CAPRI_SS_CRATER)
+#else
+# define machine_is_capri_ss_crater()	(0)
+#endif
+
 #ifdef CONFIG_MACH_CAPRI_TABLET
 # ifdef machine_arch_type
 #  undef machine_arch_type
@@ -14754,6 +14781,18 @@ extern unsigned int __machine_arch_type;
 # define machine_is_capri_m500()	(machine_arch_type == MACH_TYPE_CAPRI_M500)
 #else
 # define machine_is_capri_m500()	(0)
+#endif
+
+#ifdef CONFIG_MACH_CAPRI_GARNET
+# ifdef machine_arch_type
+#  undef machine_arch_type
+#  define machine_arch_type	__machine_arch_type
+# else
+#  define machine_arch_type	MACH_TYPE_CAPRI_GARNET
+# endif
+# define machine_is_capri_garnet()	(machine_arch_type == MACH_TYPE_CAPRI_GARNET)
+#else
+# define machine_is_capri_garnet()	(0)
 #endif
 
 #ifdef CONFIG_MACH_CAPRI_A01

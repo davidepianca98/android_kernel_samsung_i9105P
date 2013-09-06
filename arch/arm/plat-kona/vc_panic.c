@@ -49,13 +49,12 @@ int vc_panic_flush_cache(void)
 		memcpy(vc_io_map_addr + vc_mem_offset,
 			&last_resort,
 			sizeof(last_resort));
-		mdelay(1);
 
 		chal_ipc_int_vcset(vc_ipc_hdl, LAST_RESORT_IPC_DOORBELL);
-	/* Make sure we give enough time for the cache flushing to
-	 * terminate.
-	 */
-	mdelay(2);
+		/* Make sure we give enough time for the cache flushing to
+		 * terminate.
+		 */
+		mdelay(10);
 	}
 
 	return 0;

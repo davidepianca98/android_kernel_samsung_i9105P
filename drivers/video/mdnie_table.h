@@ -221,7 +221,7 @@ static const unsigned char video_tuning[] = {
 0xFF, //scr Rr
 0x00, //scr Cr
 0x06, //sharpen_set cc_en gamma_en 00 0 0
-0x20, //curve24 a
+0xff, //curve24 a
 0x00, //curve24 b
 0x20, //curve23 a
 0x00, //curve23 b
@@ -229,64 +229,64 @@ static const unsigned char video_tuning[] = {
 0x00, //curve22 b
 0x20, //curve21 a
 0x00, //curve21 b
-0x20, //curve20 a
-0x00, //curve20 b
-0x20, //curve19 a
-0x00, //curve19 b
-0x20, //curve18 a
-0x00, //curve18 b
-0x20, //curve17 a
-0x00, //curve17 b
-0x20, //curve16 a
-0x00, //curve16 b
-0x20, //curve15 a
-0x00, //curve15 b
-0x20, //curve14 a
-0x00, //curve14 b
-0x20, //curve13 a
-0x00, //curve13 b
-0x20, //curve12 a
-0x00, //curve12 b
-0x20, //curve11 a
-0x00, //curve11 b
-0x20, //curve10 a
-0x00, //curve10 b
-0x20, //curve 9 a
-0x00, //curve 9 b
-0x20, //curve 8 a
-0x00, //curve 8 b
-0x20, //curve 7 a
-0x00, //curve 7 b
-0x20, //curve 6 a
-0x00, //curve 6 b
-0x20, //curve 5 a
-0x00, //curve 5 b
-0x20, //curve 4 a
-0x00, //curve 4 b
-0x20, //curve 3 a
-0x00, //curve 3 b
-0x20, //curve 2 a
-0x00, //curve 2 b
-0x20, //curve 1 a
+0xa1, //curve20 a
+0x05, //curve20 b
+0xa2, //curve19 a
+0x09, //curve19 b
+0xa0, //curve18 a
+0x04, //curve18 b
+0xa0, //curve17 a
+0x04, //curve17 b
+0xac, //curve16 a
+0x1c, //curve16 b
+0xac, //curve15 a
+0x1c, //curve15 b
+0xa8, //curve14 a
+0x15, //curve14 b
+0xa8, //curve13 a
+0x15, //curve13 b
+0xa8, //curve12 a
+0x15, //curve12 b
+0xa0, //curve11 a
+0x0a, //curve11 b
+0xa0, //curve10 a
+0x0a, //curve10 b
+0x98, //curve 9 a
+0x01, //curve 9 b
+0x98, //curve 8 a
+0x01, //curve 8 b
+0x98, //curve 7 a
+0x01, //curve 7 b
+0x98, //curve 6 a
+0x01, //curve 6 b
+0x98, //curve 5 a
+0x01, //curve 5 b
+0x98, //curve 4 a
+0x01, //curve 4 b
+0x98, //curve 3 a
+0x01, //curve 3 b
+0x98, //curve 2 a
+0x01, //curve 2 b
+0x08, //curve 1 a
 0x00, //curve 1 b
-0x05, //cc b3
-0x6b,
+0x05, //cc b3 0.3
+0x10,
 0x1f, //cc b2
-0x10,
+0x4c,
 0x1f, //cc b1
-0x85,
+0xa4,
 0x1f, //cc g3
-0xd1,
+0xdd,
 0x04, //cc g2
-0xa9,
+0x7f,
 0x1f, //cc g1
-0x86,
+0xa4,
 0x1f, //cc r3
-0xd1,
+0xdd,
 0x1f, //cc r2
-0x10,
-0x05, //cc r1
-0x1f,                                                               
+0x4c,
+0x04, //cc r1
+0xd7,                                 
  };
 
 static const unsigned char video_outdoor_tuning[] = {                                                                  
@@ -401,7 +401,7 @@ static const unsigned char video_outdoor_tuning[] = {
 0x1e, //cc r2
 0x5b,
 0x05, //cc r1
-0xf7,                                                                 
+0xf7,                                        
  };
 
 static const unsigned char video_warm_outdoor_tuning[] = {  
@@ -427,9 +427,9 @@ static const unsigned char video_warm_outdoor_tuning[] = {
 0x00, //roi0 x start
 0x00,
 0x00, //scr Kb
-0xe0, //scr Wb
+0xdc, //scr Wb
 0x00, //scr Kg
-0xf1, //scr Wg
+0xf8, //scr Wg
 0x00, //scr Kr
 0xff, //scr Wr
 0xFF, //scr Bb
@@ -542,9 +542,9 @@ static const unsigned char video_warm_tuning[] = {
 0x00, //roi0 x start
 0x00,
 0x00, //scr Kb
-0xe0, //scr Wb
+0xdc, //scr Wb
 0x00, //scr Kg
-0xf1, //scr Wg
+0xf8, //scr Wg
 0x00, //scr Kr
 0xff, //scr Wr
 0xFF, //scr Bb
@@ -566,7 +566,7 @@ static const unsigned char video_warm_tuning[] = {
 0xFF, //scr Rr
 0x00, //scr Cr
 0x06, //sharpen_set cc_en gamma_en 00 0 0
-0x20, //curve24 a
+0xff, //curve24 a
 0x00, //curve24 b
 0x20, //curve23 a
 0x00, //curve23 b
@@ -574,64 +574,64 @@ static const unsigned char video_warm_tuning[] = {
 0x00, //curve22 b
 0x20, //curve21 a
 0x00, //curve21 b
-0x20, //curve20 a
-0x00, //curve20 b
-0x20, //curve19 a
-0x00, //curve19 b
-0x20, //curve18 a
-0x00, //curve18 b
-0x20, //curve17 a
-0x00, //curve17 b
-0x20, //curve16 a
-0x00, //curve16 b
-0x20, //curve15 a
-0x00, //curve15 b
-0x20, //curve14 a
-0x00, //curve14 b
-0x20, //curve13 a
-0x00, //curve13 b
-0x20, //curve12 a
-0x00, //curve12 b
-0x20, //curve11 a
-0x00, //curve11 b
-0x20, //curve10 a
-0x00, //curve10 b
-0x20, //curve 9 a
-0x00, //curve 9 b
-0x20, //curve 8 a
-0x00, //curve 8 b
-0x20, //curve 7 a
-0x00, //curve 7 b
-0x20, //curve 6 a
-0x00, //curve 6 b
-0x20, //curve 5 a
-0x00, //curve 5 b
-0x20, //curve 4 a
-0x00, //curve 4 b
-0x20, //curve 3 a
-0x00, //curve 3 b
-0x20, //curve 2 a
-0x00, //curve 2 b
-0x20, //curve 1 a
+0xa1, //curve20 a
+0x05, //curve20 b
+0xa2, //curve19 a
+0x09, //curve19 b
+0xa0, //curve18 a
+0x04, //curve18 b
+0xa0, //curve17 a
+0x04, //curve17 b
+0xac, //curve16 a
+0x1c, //curve16 b
+0xac, //curve15 a
+0x1c, //curve15 b
+0xa8, //curve14 a
+0x15, //curve14 b
+0xa8, //curve13 a
+0x15, //curve13 b
+0xa8, //curve12 a
+0x15, //curve12 b
+0xa0, //curve11 a
+0x0a, //curve11 b
+0xa0, //curve10 a
+0x0a, //curve10 b
+0x98, //curve 9 a
+0x01, //curve 9 b
+0x98, //curve 8 a
+0x01, //curve 8 b
+0x98, //curve 7 a
+0x01, //curve 7 b
+0x98, //curve 6 a
+0x01, //curve 6 b
+0x98, //curve 5 a
+0x01, //curve 5 b
+0x98, //curve 4 a
+0x01, //curve 4 b
+0x98, //curve 3 a
+0x01, //curve 3 b
+0x98, //curve 2 a
+0x01, //curve 2 b
+0x08, //curve 1 a
 0x00, //curve 1 b
-0x05, //cc b3
-0x6b,
+0x05, //cc b3 0.3
+0x10,
 0x1f, //cc b2
-0x10,
+0x4c,
 0x1f, //cc b1
-0x85,
+0xa4,
 0x1f, //cc g3
-0xd1,
+0xdd,
 0x04, //cc g2
-0xa9,
+0x7f,
 0x1f, //cc g1
-0x86,
+0xa4,
 0x1f, //cc r3
-0xd1,
+0xdd,
 0x1f, //cc r2
-0x10,
-0x05, //cc r1
-0x1f,
+0x4c,
+0x04, //cc r1
+0xd7,
 };
 
 static const unsigned char video_cold_outdoor_tuning[] = {  
@@ -659,9 +659,9 @@ static const unsigned char video_cold_outdoor_tuning[] = {
 0x00, //scr Kb
 0xff, //scr Wb
 0x00, //scr Kg
-0xe9, //scr Wg
+0xef, //scr Wg
 0x00, //scr Kr
-0xe2, //scr Wr
+0xef, //scr Wr
 0xFF, //scr Bb
 0x00, //scr Yb
 0x00, //scr Bg
@@ -746,7 +746,7 @@ static const unsigned char video_cold_outdoor_tuning[] = {
 0x1e, //cc r2
 0x5b,
 0x05, //cc r1
-0xf7,   
+0xf7,
 };
 
 static const unsigned char video_cold_tuning[] = {  
@@ -774,9 +774,9 @@ static const unsigned char video_cold_tuning[] = {
 0x00, //scr Kb
 0xff, //scr Wb
 0x00, //scr Kg
-0xe9, //scr Wg
+0xef, //scr Wg
 0x00, //scr Kr
-0xe2, //scr Wr
+0xef, //scr Wr
 0xFF, //scr Bb
 0x00, //scr Yb
 0x00, //scr Bg
@@ -796,7 +796,7 @@ static const unsigned char video_cold_tuning[] = {
 0xFF, //scr Rr
 0x00, //scr Cr
 0x06, //sharpen_set cc_en gamma_en 00 0 0
-0x20, //curve24 a
+0xff, //curve24 a
 0x00, //curve24 b
 0x20, //curve23 a
 0x00, //curve23 b
@@ -804,66 +804,66 @@ static const unsigned char video_cold_tuning[] = {
 0x00, //curve22 b
 0x20, //curve21 a
 0x00, //curve21 b
-0x20, //curve20 a
-0x00, //curve20 b
-0x20, //curve19 a
-0x00, //curve19 b
-0x20, //curve18 a
-0x00, //curve18 b
-0x20, //curve17 a
-0x00, //curve17 b
-0x20, //curve16 a
-0x00, //curve16 b
-0x20, //curve15 a
-0x00, //curve15 b
-0x20, //curve14 a
-0x00, //curve14 b
-0x20, //curve13 a
-0x00, //curve13 b
-0x20, //curve12 a
-0x00, //curve12 b
-0x20, //curve11 a
-0x00, //curve11 b
-0x20, //curve10 a
-0x00, //curve10 b
-0x20, //curve 9 a
-0x00, //curve 9 b
-0x20, //curve 8 a
-0x00, //curve 8 b
-0x20, //curve 7 a
-0x00, //curve 7 b
-0x20, //curve 6 a
-0x00, //curve 6 b
-0x20, //curve 5 a
-0x00, //curve 5 b
-0x20, //curve 4 a
-0x00, //curve 4 b
-0x20, //curve 3 a
-0x00, //curve 3 b
-0x20, //curve 2 a
-0x00, //curve 2 b
-0x20, //curve 1 a
+0xa1, //curve20 a
+0x05, //curve20 b
+0xa2, //curve19 a
+0x09, //curve19 b
+0xa0, //curve18 a
+0x04, //curve18 b
+0xa0, //curve17 a
+0x04, //curve17 b
+0xac, //curve16 a
+0x1c, //curve16 b
+0xac, //curve15 a
+0x1c, //curve15 b
+0xa8, //curve14 a
+0x15, //curve14 b
+0xa8, //curve13 a
+0x15, //curve13 b
+0xa8, //curve12 a
+0x15, //curve12 b
+0xa0, //curve11 a
+0x0a, //curve11 b
+0xa0, //curve10 a
+0x0a, //curve10 b
+0x98, //curve 9 a
+0x01, //curve 9 b
+0x98, //curve 8 a
+0x01, //curve 8 b
+0x98, //curve 7 a
+0x01, //curve 7 b
+0x98, //curve 6 a
+0x01, //curve 6 b
+0x98, //curve 5 a
+0x01, //curve 5 b
+0x98, //curve 4 a
+0x01, //curve 4 b
+0x98, //curve 3 a
+0x01, //curve 3 b
+0x98, //curve 2 a
+0x01, //curve 2 b
+0x08, //curve 1 a
 0x00, //curve 1 b
-0x05, //cc b3
-0x6b,
+0x05, //cc b3 0.3
+0x10,
 0x1f, //cc b2
-0x10,
+0x4c,
 0x1f, //cc b1
-0x85,
+0xa4,
 0x1f, //cc g3
-0xd1,
+0xdd,
 0x04, //cc g2
-0xa9,
+0x7f,
 0x1f, //cc g1
-0x86,
+0xa4,
 0x1f, //cc r3
-0xd1,
+0xdd,
 0x1f, //cc r2
-0x10,
-0x05, //cc r1
-0x1f,
+0x4c,
+0x04, //cc r1
+0xd7,
 };
-    
+
 static const unsigned char ui_tuning[] = {                                                                  
 0x5A, //password 5A
 0x00, //mask 000
@@ -911,7 +911,7 @@ static const unsigned char ui_tuning[] = {
 0xFF, //scr Rr
 0x00, //scr Cr
 0x02, //sharpen_set cc_en gamma_en 00 0 0
-0x20, //curve24 a
+0xff, //curve24 a
 0x00, //curve24 b
 0x20, //curve23 a
 0x00, //curve23 b
@@ -919,45 +919,45 @@ static const unsigned char ui_tuning[] = {
 0x00, //curve22 b
 0x20, //curve21 a
 0x00, //curve21 b
-0x20, //curve20 a
-0x00, //curve20 b
-0x20, //curve19 a
-0x00, //curve19 b
-0x20, //curve18 a
-0x00, //curve18 b
-0x20, //curve17 a
-0x00, //curve17 b
-0x20, //curve16 a
-0x00, //curve16 b
-0x20, //curve15 a
-0x00, //curve15 b
-0x20, //curve14 a
-0x00, //curve14 b
-0x20, //curve13 a
-0x00, //curve13 b
-0x20, //curve12 a
-0x00, //curve12 b
-0x20, //curve11 a
-0x00, //curve11 b
-0x20, //curve10 a
-0x00, //curve10 b
-0x20, //curve 9 a
-0x00, //curve 9 b
-0x20, //curve 8 a
-0x00, //curve 8 b
-0x20, //curve 7 a
-0x00, //curve 7 b
-0x20, //curve 6 a
-0x00, //curve 6 b
-0x20, //curve 5 a
-0x00, //curve 5 b
-0x20, //curve 4 a
-0x00, //curve 4 b
-0x20, //curve 3 a
-0x00, //curve 3 b
-0x20, //curve 2 a
-0x00, //curve 2 b
-0x20, //curve 1 a
+0xa1, //curve20 a
+0x05, //curve20 b
+0xa2, //curve19 a
+0x09, //curve19 b
+0xa0, //curve18 a
+0x04, //curve18 b
+0xa0, //curve17 a
+0x04, //curve17 b
+0xac, //curve16 a
+0x1c, //curve16 b
+0xac, //curve15 a
+0x1c, //curve15 b
+0xa8, //curve14 a
+0x15, //curve14 b
+0xa8, //curve13 a
+0x15, //curve13 b
+0xa8, //curve12 a
+0x15, //curve12 b
+0xa0, //curve11 a
+0x0a, //curve11 b
+0xa0, //curve10 a
+0x0a, //curve10 b
+0x98, //curve 9 a
+0x01, //curve 9 b
+0x98, //curve 8 a
+0x01, //curve 8 b
+0x98, //curve 7 a
+0x01, //curve 7 b
+0x98, //curve 6 a
+0x01, //curve 6 b
+0x98, //curve 5 a
+0x01, //curve 5 b
+0x98, //curve 4 a
+0x01, //curve 4 b
+0x98, //curve 3 a
+0x01, //curve 3 b
+0x98, //curve 2 a
+0x01, //curve 2 b
+0x08, //curve 1 a
 0x00, //curve 1 b
 0x06, //cc b3 0.6
 0x21,
@@ -976,7 +976,7 @@ static const unsigned char ui_tuning[] = {
 0x1e, //cc r2
 0x97,
 0x05, //cc r1
-0xaf,                                             
+0xaf,                             
  };
 
 static const unsigned char gallery_tuning[] = {                                                                  
@@ -1025,8 +1025,8 @@ static const unsigned char gallery_tuning[] = {
 0xFF, //scr Cg
 0xFF, //scr Rr
 0x00, //scr Cr
-0x02, //sharpen_set cc_en gamma_en 00 0 0
-0x20, //curve24 a
+0x06, //sharpen_set cc_en gamma_en 00 0 0
+0xff, //curve24 a
 0x00, //curve24 b
 0x20, //curve23 a
 0x00, //curve23 b
@@ -1034,64 +1034,64 @@ static const unsigned char gallery_tuning[] = {
 0x00, //curve22 b
 0x20, //curve21 a
 0x00, //curve21 b
-0x20, //curve20 a
-0x00, //curve20 b
-0x20, //curve19 a
-0x00, //curve19 b
-0x20, //curve18 a
-0x00, //curve18 b
-0x20, //curve17 a
-0x00, //curve17 b
-0x20, //curve16 a
-0x00, //curve16 b
-0x20, //curve15 a
-0x00, //curve15 b
-0x20, //curve14 a
-0x00, //curve14 b
-0x20, //curve13 a
-0x00, //curve13 b
-0x20, //curve12 a
-0x00, //curve12 b
-0x20, //curve11 a
-0x00, //curve11 b
-0x20, //curve10 a
-0x00, //curve10 b
-0x20, //curve 9 a
-0x00, //curve 9 b
-0x20, //curve 8 a
-0x00, //curve 8 b
-0x20, //curve 7 a
-0x00, //curve 7 b
-0x20, //curve 6 a
-0x00, //curve 6 b
-0x20, //curve 5 a
-0x00, //curve 5 b
-0x20, //curve 4 a
-0x00, //curve 4 b
-0x20, //curve 3 a
-0x00, //curve 3 b
-0x20, //curve 2 a
-0x00, //curve 2 b
-0x20, //curve 1 a
+0xa1, //curve20 a
+0x05, //curve20 b
+0xa2, //curve19 a
+0x09, //curve19 b
+0xa0, //curve18 a
+0x04, //curve18 b
+0xa0, //curve17 a
+0x04, //curve17 b
+0xac, //curve16 a
+0x1c, //curve16 b
+0xac, //curve15 a
+0x1c, //curve15 b
+0xa8, //curve14 a
+0x15, //curve14 b
+0xa8, //curve13 a
+0x15, //curve13 b
+0xa8, //curve12 a
+0x15, //curve12 b
+0xa0, //curve11 a
+0x0a, //curve11 b
+0xa0, //curve10 a
+0x0a, //curve10 b
+0x98, //curve 9 a
+0x01, //curve 9 b
+0x98, //curve 8 a
+0x01, //curve 8 b
+0x98, //curve 7 a
+0x01, //curve 7 b
+0x98, //curve 6 a
+0x01, //curve 6 b
+0x98, //curve 5 a
+0x01, //curve 5 b
+0x98, //curve 4 a
+0x01, //curve 4 b
+0x98, //curve 3 a
+0x01, //curve 3 b
+0x98, //curve 2 a
+0x01, //curve 2 b
+0x08, //curve 1 a
 0x00, //curve 1 b
-0x05, //cc b3
-0x6b,
+0x05, //cc b3 0.3
+0x10,
 0x1f, //cc b2
-0x10,
+0x4c,
 0x1f, //cc b1
-0x85,
+0xa4,
 0x1f, //cc g3
-0xd1,
+0xdd,
 0x04, //cc g2
-0xa9,
+0x7f,
 0x1f, //cc g1
-0x86,
+0xa4,
 0x1f, //cc r3
-0xd1,
+0xdd,
 0x1f, //cc r2
-0x10,
-0x05, //cc r1
-0x1f,                                        
+0x4c,
+0x04, //cc r1
+0xd7,
  };
 
 static const unsigned char camera_tuning[] = {                                                                  
@@ -1140,8 +1140,8 @@ static const unsigned char camera_tuning[] = {
 0xFF, //scr Cg
 0xFF, //scr Rr
 0x00, //scr Cr
-0x06, //sharpen_set cc_en gamma_en 00 0 0
-0x20, //curve24 a
+0x02, //sharpen_set cc_en gamma_en 00 0 0
+0xff, //curve24 a
 0x00, //curve24 b
 0x20, //curve23 a
 0x00, //curve23 b
@@ -1149,64 +1149,64 @@ static const unsigned char camera_tuning[] = {
 0x00, //curve22 b
 0x20, //curve21 a
 0x00, //curve21 b
-0x20, //curve20 a
-0x00, //curve20 b
-0x20, //curve19 a
-0x00, //curve19 b
-0x20, //curve18 a
-0x00, //curve18 b
-0x20, //curve17 a
-0x00, //curve17 b
-0x20, //curve16 a
-0x00, //curve16 b
-0x20, //curve15 a
-0x00, //curve15 b
-0x20, //curve14 a
-0x00, //curve14 b
-0x20, //curve13 a
-0x00, //curve13 b
-0x20, //curve12 a
-0x00, //curve12 b
-0x20, //curve11 a
-0x00, //curve11 b
-0x20, //curve10 a
-0x00, //curve10 b
-0x20, //curve 9 a
-0x00, //curve 9 b
-0x20, //curve 8 a
-0x00, //curve 8 b
-0x20, //curve 7 a
-0x00, //curve 7 b
-0x20, //curve 6 a
-0x00, //curve 6 b
-0x20, //curve 5 a
-0x00, //curve 5 b
-0x20, //curve 4 a
-0x00, //curve 4 b
-0x20, //curve 3 a
-0x00, //curve 3 b
-0x20, //curve 2 a
-0x00, //curve 2 b
-0x20, //curve 1 a
+0xa1, //curve20 a
+0x05, //curve20 b
+0xa2, //curve19 a
+0x09, //curve19 b
+0xa0, //curve18 a
+0x04, //curve18 b
+0xa0, //curve17 a
+0x04, //curve17 b
+0xac, //curve16 a
+0x1c, //curve16 b
+0xac, //curve15 a
+0x1c, //curve15 b
+0xa8, //curve14 a
+0x15, //curve14 b
+0xa8, //curve13 a
+0x15, //curve13 b
+0xa8, //curve12 a
+0x15, //curve12 b
+0xa0, //curve11 a
+0x0a, //curve11 b
+0xa0, //curve10 a
+0x0a, //curve10 b
+0x98, //curve 9 a
+0x01, //curve 9 b
+0x98, //curve 8 a
+0x01, //curve 8 b
+0x98, //curve 7 a
+0x01, //curve 7 b
+0x98, //curve 6 a
+0x01, //curve 6 b
+0x98, //curve 5 a
+0x01, //curve 5 b
+0x98, //curve 4 a
+0x01, //curve 4 b
+0x98, //curve 3 a
+0x01, //curve 3 b
+0x98, //curve 2 a
+0x01, //curve 2 b
+0x08, //curve 1 a
 0x00, //curve 1 b
-0x05, //cc b3
-0x6b,
+0x05, //cc b3 0.3
+0x10,
 0x1f, //cc b2
-0x10,
+0x4c,
 0x1f, //cc b1
-0x85,
+0xa4,
 0x1f, //cc g3
-0xd1,
+0xdd,
 0x04, //cc g2
-0xa9,
+0x7f,
 0x1f, //cc g1
-0x86,
+0xa4,
 0x1f, //cc r3
-0xd1,
+0xdd,
 0x1f, //cc r2
-0x10,
-0x05, //cc r1
-0x1f,                                                                    
+0x4c,
+0x04, //cc r1
+0xd7,                                               
  };
 
 static const unsigned char camera_outdoor_tuning[] = {    
@@ -1255,7 +1255,7 @@ static const unsigned char camera_outdoor_tuning[] = {
 0xFF, //scr Cg
 0xFF, //scr Rr
 0x00, //scr Cr
-0x07, //sharpen_set cc_en gamma_en 00 0 0
+0x03, //sharpen_set cc_en gamma_en 00 0 0
 0xff, //curve24 a
 0x00, //curve24 b
 0x0a, //curve23 a

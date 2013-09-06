@@ -504,7 +504,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 	bcm2079x_dev->original_address = client->addr;
 
 #ifdef CONFIG_HAS_WAKELOCK
-	wake_lock_init(&nfc_wake_lock, WAKE_LOCK_IDLE, "NFCWAKE");
+	wake_lock_init(&nfc_wake_lock, WAKE_LOCK_SUSPEND, "NFCWAKE");
 #endif
 	i2c_set_clientdata(client, bcm2079x_dev);
 

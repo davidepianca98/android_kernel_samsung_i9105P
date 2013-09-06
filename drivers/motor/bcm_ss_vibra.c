@@ -158,7 +158,11 @@ static int vibrator_probe(struct platform_device *pdev)
 	vibrator_timed_dev.name = "vibrator";
 	vibrator_timed_dev.enable = vibrator_enable_set_timeout;
 	vibrator_timed_dev.get_time = vibrator_get_remaining_time;
-	vib_voltage = 3300000;
+#if defined(CONFIG_MACH_CAPRI_SS_CRATER)
+	vib_voltage = 3100000;
+#else
+	vib_voltage = 3000000;
+#endif
    
 #if defined(CONFIG_HAS_WAKELOCK)
 	wake_lock_init(&vib_wl, WAKE_LOCK_SUSPEND, __stringify(vib_wl));

@@ -164,23 +164,25 @@ static struct backlight_ops bcm_keypad_led_ops = {
 static int bcm_keypad_led_suspend(struct platform_device *pdev,
 					pm_message_t state)
 {
+	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	KLDBG("[KEYLED] %s, %d\n", __func__, __LINE__ );
 
 //	keyled_power_ctrl(KEYLED_OFF);
 	keyled_suspended = 1;
-	
+	keyled_set_intensity(bl);
     return 0;
 }
 
 static int bcm_keypad_led_resume(struct platform_device *pdev)
 {
+	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	KLDBG("[KEYLED] %s, %d\n", __func__, __LINE__ );
 
 //	keyled_power_ctrl(KEYLED_ON);
 	keyled_suspended = 0;
-	
+	keyled_set_intensity(bl);
     return 0;
 }
 

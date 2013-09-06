@@ -1132,6 +1132,9 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	 */
 	gs_tty_driver->init_termios.c_cflag =
 			B9600 | CS8 | CREAD | HUPCL | CLOCAL;
+	gs_tty_driver->init_termios.c_iflag = IGNPAR;
+	gs_tty_driver->init_termios.c_oflag = 0;
+	gs_tty_driver->init_termios.c_lflag =  0;
 	gs_tty_driver->init_termios.c_ispeed = 9600;
 	gs_tty_driver->init_termios.c_ospeed = 9600;
 

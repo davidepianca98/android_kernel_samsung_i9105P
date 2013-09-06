@@ -30,11 +30,11 @@
 extern atomic_t nohz_pause;
 static inline void pause_nohz(void)
 {
-        atomic_inc(&nohz_pause);
+        atomic_set(&nohz_pause, 1);
 }
 static inline void resume_nohz(void)
 {
-        atomic_dec(&nohz_pause);
+        atomic_set(&nohz_pause, 0);
 }
 static inline int kona_nohz_delay(int cpu)
 {

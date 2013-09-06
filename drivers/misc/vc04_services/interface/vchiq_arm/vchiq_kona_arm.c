@@ -28,8 +28,6 @@
 #include <linux/gpio.h>
 #include <linux/proc_fs.h>
 
-
-
 #ifdef CONFIG_ARCH_KONA
 
 #include <chal/chal_ipc.h>
@@ -63,6 +61,9 @@
 #include "vchiq_memdrv.h"
 #include "vchiq_build_info.h"
 
+#ifdef CONFIG_BCM_HDMI_DET
+#include <linux/broadcom/hdmi.h>
+#endif
 
 #include <vc_mem.h>
 
@@ -120,6 +121,8 @@ struct vc_suspend_info {
 #define RESUME_FAILURE_TIMER  2
 #define TIMEOUT_FAILURE_TIMER 3
 #define SUSPEND_FAILURE_TIMER_DURATION_MS  1000
+
+#define DMA_QOS_VAL 100
 
 
 static const char *const copyright = "Copyright (c) 2011-2012 Broadcom";
@@ -210,7 +213,6 @@ vchiq_platform_init_state(VCHIQ_STATE_T *state)
 	failure_timer->data = (unsigned long)(state);
 	failure_timer->function = suspend_failure_timer_callback;
 	atomic_set(&plat_state->suspend_failure_timer_state, 0);
-
 
 out:
 	return status;
@@ -320,11 +322,11 @@ vchiq_platform_handle_timeout(VCHIQ_STATE_T *state)
 	struct vc_suspend_info suspend_info;
 	stop_suspend_failure_timer(state);
 	get_vc_suspend_syms(&suspend_info);
-		vchiq_log_error(vchiq_susp_log_level,
-			"%s - ERROR VideoCore %s timed out. VC suspend stage "
-			"0x%08lx, cb func 0x%08lx", __func__,
-			state->conn_state == VCHIQ_CONNSTATE_RESUME_TIMEOUT ?
-				"RESUME" : "SUSPEND",
+	vchiq_log_error(vchiq_susp_log_level,
+		"%s - ERROR VideoCore %s timed out. VC suspend stage "
+		"0x%08lx, cb func 0x%08lx", __func__,
+		state->conn_state == VCHIQ_CONNSTATE_RESUME_TIMEOUT ?
+			"RESUME" : "SUSPEND",
 		suspend_info.suspend_stage, suspend_info.suspend_cb_func);
 	BUG();
 }
@@ -459,11 +461,11 @@ vchiq_platform_paused(VCHIQ_STATE_T *state)
 	if (timed_out || arm_state->wake_address == 0)
 		get_vc_suspend_syms(&suspend_info);
 	if (timed_out && (arm_state->wake_address == ~0)) {
-			vchiq_log_error(vchiq_susp_log_level, "%s - ERROR: "
-				"timed out waiting for VideoCore wake address. "
-				"VC suspend stage 0x%08lx, cb func 0x%08lx",
-				__func__, suspend_info.suspend_stage,
-				suspend_info.suspend_cb_func);
+		vchiq_log_error(vchiq_susp_log_level, "%s - ERROR: "
+			"timed out waiting for VideoCore wake address. "
+			"VC suspend stage 0x%08lx, cb func 0x%08lx",
+			__func__, suspend_info.suspend_stage,
+			suspend_info.suspend_cb_func);
 		BUG();
 	}
 	vchiq_log_info(vchiq_susp_log_level, "%s - suspend continue received",
@@ -480,12 +482,15 @@ vchiq_platform_paused(VCHIQ_STATE_T *state)
 	vc_pmu_req_suspend();
 #endif
 
+#ifdef CONFIG_BCM_HDMI_DET
+	hdmi_detection_power_ctrl(false);
+#endif
+
 #ifdef CONFIG_ARCH_KONA
 	msleep(1);
 	/* indicate to the PMU that videocore is in reset */
 	pwr_mgr_mm_crystal_clk_is_idle(true);
 #endif
-
 
 	write_lock_bh(&arm_state->susp_res_lock);
 	if (arm_state->wake_address == 0) {
@@ -546,10 +551,13 @@ vchiq_platform_resume(VCHIQ_STATE_T *state)
 		arm_state->wake_address);
 	arm_state->resume_start_time = cpu_clock(0);
 
-
 #ifdef CONFIG_ARCH_KONA
 	/* indicate to the PMU that videocore is about to come out of reset */
 	pwr_mgr_mm_crystal_clk_is_idle(false);
+#endif
+
+#ifdef CONFIG_BCM_HDMI_DET
+	hdmi_detection_power_ctrl(true);
 #endif
 
 #ifdef CONFIG_BCM_VC_PMU_REQUEST
@@ -785,6 +793,17 @@ static int vchiq_control_cfg_parse(struct file *file,
 	kbuf[count - 1] = 0;
 
 	command = kbuf;
+
+	if (!g_vchiq_ipc_shared_mem_size) {
+		if (!((strncmp("connect", command, strlen("connect")) == 0) ||
+		(strncmp("version", command, strlen("version")) == 0))) {
+			vchiq_log_warning(vchiq_arm_log_level,
+			"%s: VC is not connected, dropping command: %s",
+			__func__, command);
+			/* Early exit. */
+			return count;
+		}
+	}
 
 	if (strncmp("connect", command, strlen("connect")) == 0) {
 		if (vchiq_memdrv_initialise() != VCHIQ_SUCCESS)
@@ -1252,6 +1271,15 @@ service_gpio(uint32_t irq_status)
  * Local functions
  */
 
+#define VCHIQ_IPC_MASK (\
+	IPC_INTERRUPT_SOURCE_4 | \
+	IPC_INTERRUPT_SOURCE_3 | \
+	IPC_INTERRUPT_SOURCE_2 | \
+	IPC_INTERRUPT_SOURCE_1 | \
+	IPC_INTERRUPT_SOURCE_0)
+
+#define VCHIQ_IPC_SOURCE_MAX (IPC_INTERRUPT_SOURCE_4+1)
+
 static irqreturn_t
 vchiq_doorbell_irq(int irq, void *dev_id)
 {
@@ -1262,9 +1290,12 @@ vchiq_doorbell_irq(int irq, void *dev_id)
 	/* get the interrupt status value */
 	chal_ipc_get_int_status(ipcHandle, &status);
 
+	if ((status & VCHIQ_IPC_MASK) == 0)
+		return IRQ_NONE;
+
 	/* clear all the interrupts first */
 	for (source = IPC_INTERRUPT_SOURCE_0;
-		source < IPC_INTERRUPT_SOURCE_MAX; source++) {
+		source < VCHIQ_IPC_SOURCE_MAX; source++) {
 		if (status & (IPC_INTERRUPT_STATUS_ENABLED << source))
 			chal_ipc_int_clr(ipcHandle, source);
 	}
@@ -1281,7 +1312,7 @@ vchiq_doorbell_irq(int irq, void *dev_id)
 		/* this is a GPIO request */
 		service_gpio(status);
 
-	return IRQ_HANDLED;
+	return (status & ~VCHIQ_IPC_MASK) ? IRQ_NONE : IRQ_HANDLED;
 }
 
 static int
@@ -1487,7 +1518,7 @@ VCHIQ_STATUS_T vchiq_memdrv_initialise(void)
 		chal_ipc_int_clr(ipcHandle, i);
 
 	err = request_irq(VCHIQ_DOORBELL_IRQ, vchiq_doorbell_irq,
-		IRQF_DISABLED, "IPC driver", state);
+		IRQF_DISABLED | IRQF_SHARED, "IPC driver", state);
 	if (err != 0) {
 		vchiq_log_error(vchiq_arm_log_level,
 			"%s: failed to register irq=%d err=%d",

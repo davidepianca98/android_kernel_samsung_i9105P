@@ -39,10 +39,14 @@
 
 #define SAMSUNG_CALIBRATION
 
-#ifdef SAMSUNG_CALIBRATION
+#ifdef SAMSUNG_SYSINFO_DATA
 #define SAMSUNG_HW_VERSION			0x02
-#define SAMSUNG_FW_VERSION			0x0E00
-#define SAMSUNG_CONFIG_VERSION		0x11
+#define SAMSUNG_FW_VERSION			0x1100
+#define SAMSUNG_CONFIG_VERSION		0x14
+#endif
+
+#ifdef SAMSUNG_CALIBRATION
+#define STARTUP_TIMEOUT	5000
 #endif
 
 #define CYTTSP4_LOADER_NAME "cyttsp4_loader"
@@ -111,7 +115,7 @@ struct cyttsp4_loader_data {
 	struct completion int_running;
 	struct work_struct fw_upgrade;
 #ifdef SAMSUNG_CALIBRATION
-	struct work_struct calibration_work;
+	struct completion startup_complete;
 #endif
 };
 
@@ -908,11 +912,8 @@ static int cyttsp4_check_version_platform(struct cyttsp4_device *ttsp,
 }
 
 #ifdef SAMSUNG_CALIBRATION
-static void cyttsp4_fw_calibrate(struct work_struct *calibration_work)
+static void cyttsp4_fw_calibrate(struct cyttsp4_device *ttsp)
 {
-	struct cyttsp4_loader_data *data = container_of(calibration_work,
-			struct cyttsp4_loader_data, calibration_work);
-	struct cyttsp4_device *ttsp = data->ttsp;
 	struct device *dev = &ttsp->dev;
 	u8 cmd_buf[4], return_buf[2];
 	int rc, rc2, rc3;
@@ -938,7 +939,7 @@ static void cyttsp4_fw_calibrate(struct work_struct *calibration_work)
 	}
 
 	cmd_buf[0] = CY_CMD_CAT_CALIBRATE_IDACS;
-	cmd_buf[1] = 0x00; // Mutual Capacitance Screen
+	cmd_buf[1] = 0x00; /* Mutual Capacitance Screen */
 	rc = cyttsp4_request_exec_cmd(ttsp, CY_MODE_CAT,
 			cmd_buf, 2, return_buf, 1, 5000);
 	if (rc < 0) {
@@ -950,7 +951,7 @@ static void cyttsp4_fw_calibrate(struct work_struct *calibration_work)
 		goto exit_setmode;
 	}
 
-	cmd_buf[1] = 0x01; // Mutual Capacitance Button
+	cmd_buf[1] = 0x01; /* Mutual Capacitance Button */
 	rc = cyttsp4_request_exec_cmd(ttsp, CY_MODE_CAT,
 			cmd_buf, 2, return_buf, 1, 5000);
 	if (rc < 0) {
@@ -962,7 +963,7 @@ static void cyttsp4_fw_calibrate(struct work_struct *calibration_work)
 		goto exit_setmode;
 	}
 
-	cmd_buf[1] = 0x02; // Self Capacitance
+	cmd_buf[1] = 0x02; /* Self Capacitance */
 	rc = cyttsp4_request_exec_cmd(ttsp, CY_MODE_CAT,
 			cmd_buf, 2, return_buf, 1, 5000);
 	if (rc < 0) {
@@ -971,6 +972,24 @@ static void cyttsp4_fw_calibrate(struct work_struct *calibration_work)
 	}
 	if (return_buf[0] != 0) {
  		dev_err(dev, "%s: calibrate command unsuccessful\n", __func__);
+		goto exit_setmode;
+	}
+
+	/* Initialize baselines */
+	cmd_buf[0] = CY_CMD_CAT_INIT_BASELINES;
+	cmd_buf[1] = 0x0F;
+	rc = cyttsp4_request_exec_cmd(ttsp, CY_MODE_CAT,
+		cmd_buf, 2, return_buf, 1, 5000);
+	if (rc < 0) {
+		dev_err(dev, "%s: fail to execute initialize baselines command\n",
+			__func__);
+		goto exit_setmode;
+	}
+
+	if (return_buf[0] != 0) {
+		dev_err(dev, "%s: initialize baselines command unsuccessful\n",
+			__func__);
+		rc = -EINVAL;
 		goto exit_setmode;
 	}
 
@@ -990,7 +1009,7 @@ exit:
 	pm_runtime_put(dev);
 }
 
-static int cyttsp4_fw_calibration_attention(struct cyttsp4_device *ttsp)
+static int cyttsp4_fw_startup_attention(struct cyttsp4_device *ttsp)
 {
 	struct device *dev = &ttsp->dev;
 	struct cyttsp4_loader_data *data = dev_get_drvdata(dev);
@@ -998,10 +1017,11 @@ static int cyttsp4_fw_calibration_attention(struct cyttsp4_device *ttsp)
 
 	dev_vdbg(dev, "%s\n", __func__);
 
-	schedule_work(&data->calibration_work);
+	/* Signal startup completed */
+	complete(&data->startup_complete);
 
 	cyttsp4_unsubscribe_attention(ttsp, CY_ATTEN_STARTUP,
-		cyttsp4_fw_calibration_attention, 0);
+		cyttsp4_fw_startup_attention, 0);
 
 	return rc;
 }
@@ -1012,9 +1032,14 @@ static int cyttsp4_upgrade_firmware(struct cyttsp4_device *ttsp,
  		const u8 *fw_img, int fw_size)
 {
 	struct device *dev = &ttsp->dev;
+	struct cyttsp4_loader_data *data = dev_get_drvdata(dev);
 	int rc;
+#ifdef SAMSUNG_CALIBRATION
+	bool calibrate = false;
+	int t;
+#endif
 
-printk("%s: ttsp=%p\n", __func__, ttsp);
+	printk(KERN_INFO "%s: ttsp=%p\n", __func__, ttsp);
 
 	pm_runtime_get_sync(dev);
 
@@ -1029,19 +1054,37 @@ printk("%s: ttsp=%p\n", __func__, ttsp);
 #ifdef SAMSUNG_CALIBRATION
 	} else {
 		/* set up call back for after startup */
-		dev_vdbg(dev, "%s: Adding callback for calibration\n", __func__);
+		dev_vdbg(dev, "%s: Adding callback for startup\n", __func__);
 		rc = cyttsp4_subscribe_attention(ttsp, CY_ATTEN_STARTUP,
-				cyttsp4_fw_calibration_attention, 0);
+				cyttsp4_fw_startup_attention, 0);
 		if (rc) {
 			dev_err(dev, "%s: Failed adding callback for calibration, no calibration will be performed\n",
 					__func__);
 			rc = 0;
-		}
+		} else
+			calibrate = true;
 #endif
 	}
 
 	cyttsp4_release_exclusive(ttsp);
 	cyttsp4_request_restart(ttsp);
+
+#ifdef SAMSUNG_CALIBRATION
+	if (!calibrate)
+		goto exit;
+
+	/* Wait for startup to complete */
+	t = wait_for_completion_timeout(&data->startup_complete,
+			msecs_to_jiffies(STARTUP_TIMEOUT));
+	if (IS_TMO(t)) {
+		dev_err(dev, "%s: Timeout waiting for startup to complete\n",
+			__func__);
+		goto exit;
+	}
+
+	/* Calibrate */
+	cyttsp4_fw_calibrate(ttsp);
+#endif
 
 exit:
 	pm_runtime_put(dev);
@@ -1072,6 +1115,7 @@ static int upgrade_from_platform_firmware(struct cyttsp4_device *ttsp,
 	}
 
 	upgrade = cyttsp4_check_version_platform(ttsp, fw);
+
  	if (!upgrade)
 		return rc;
 
@@ -1126,27 +1170,7 @@ static void _cyttsp4_firmware_cont(const struct firmware *fw, void *context)
 
 	cyttsp4_upgrade_firmware(ttsp, &(fw->data[header_size + 1]),
 		fw->size - (header_size + 1));
-#if 0
-	pm_runtime_get_sync(dev);
 
-	retval = cyttsp4_request_exclusive(ttsp, 5000);
-	if (retval < 0)
-		goto cyttsp4_firmware_cont_release_exit;
-
-	retval = _cyttsp4_load_app(ttsp, &(fw->data[header_size + 1]),
-		fw->size - (header_size + 1));
-	if (retval < 0) {
-		dev_err(dev,
-			"%s: Firmware update failed with error code %d\n",
-			__func__, retval);
-	}
-
-	cyttsp4_release_exclusive(ttsp);
-	cyttsp4_request_restart(ttsp);
-
-cyttsp4_firmware_cont_release_exit:
-	pm_runtime_put(dev);
-#endif
 	release_firmware(fw);
 	_start_fw_class(ttsp, _cyttsp4_firmware_cont);
 
@@ -1238,16 +1262,12 @@ static int cyttsp4_loader_attention(struct cyttsp4_device *ttsp)
 	return 0;
 }
 
-static void cyttsp4_fw_upgrade(struct work_struct *fw_upgrade)
+static void cyttsp4_fw_upgrade(struct cyttsp4_device *ttsp)
 {
-	struct cyttsp4_loader_data *data = container_of(fw_upgrade,
-			struct cyttsp4_loader_data, fw_upgrade);
 	struct cyttsp4_touch_firmware *fw;
-	struct cyttsp4_device *ttsp = data->ttsp;
 	struct device *dev = &ttsp->dev;
+	struct cyttsp4_loader_data *data = dev_get_drvdata(&ttsp->dev);	
 	int rc;
-
-	pm_runtime_get_sync(dev);
 
 	data->si = cyttsp4_request_sysinfo(ttsp);
 	if (data->si == NULL)
@@ -1255,9 +1275,6 @@ static void cyttsp4_fw_upgrade(struct work_struct *fw_upgrade)
 			__func__);
 
 	fw = cyttsp4_request_firmware(ttsp);
-
-	pm_runtime_put(dev);
-
 	if (fw) {
 		dev_dbg(dev, "%s: Found platform firmware\n", __func__);
 		rc = upgrade_from_platform_firmware(ttsp, fw);
@@ -1294,8 +1311,6 @@ static int cyttsp4_loader_probe(struct cyttsp4_device *ttsp)
 		goto error_alloc_data_failed;
 	}
 
-printk("%s: ttsp=%p\n", __func__, ttsp);
-
 	data->ttsp = ttsp;
 	dev_set_drvdata(dev, data);
 	init_completion(&(data->int_running));
@@ -1303,11 +1318,11 @@ printk("%s: ttsp=%p\n", __func__, ttsp);
 	cyttsp4_subscribe_attention(ttsp, CY_ATTEN_IRQ,
 		cyttsp4_loader_attention, CY_MODE_BOOTLOADER);
 	cyttsp4_set_loader(ttsp, cyttsp4_load_func);
-	INIT_WORK(&data->fw_upgrade, cyttsp4_fw_upgrade);
 #ifdef SAMSUNG_CALIBRATION
-	INIT_WORK(&data->calibration_work, cyttsp4_fw_calibrate);
+	init_completion(&data->startup_complete);
 #endif
-	schedule_work(&data->fw_upgrade);
+	cyttsp4_fw_upgrade(ttsp);
+
 	dev_info(dev, "%s: Successful probe %s\n", __func__, ttsp->name);
 	return 0;
 

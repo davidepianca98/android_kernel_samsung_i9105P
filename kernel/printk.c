@@ -1064,9 +1064,10 @@ if (bcmlog_mtt_on == 1 && bcmlog_log_ulogging_id > 0 && BrcmLogString)
 
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
-				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
+				tlen = sprintf(tbuf, "[%5lu.%06lu] {%lu}",
 						(unsigned long) t,
-						nanosec_rem / 1000);
+						nanosec_rem / 1000,
+						jiffies);
 
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
@@ -1268,7 +1269,7 @@ void resume_console(void)
 	console_unlock();
 }
 
-#ifdef CONFIG_MACH_CAPRI_SS_BAFFIN_CMCC
+#if defined( CONFIG_MACH_CAPRI_SS_BAFFIN_CMCC)||defined( CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
 int get_console_suspended(void)
 {
 	return console_suspended ;

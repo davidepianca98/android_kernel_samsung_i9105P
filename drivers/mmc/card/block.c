@@ -1000,7 +1000,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 		if (brq.sbc.error || brq.cmd.error || brq.stop.error) {
 			switch (mmc_blk_cmd_recovery(card, req, &brq)) {
 			case ERR_RETRY:
-				if (retry++ < 2)    //if (retry++ < 5)    FL6 wxs I9105
+				if (retry++ < 5)
 					continue;
 			case ERR_ABORT:
 				goto cmd_abort;
@@ -1446,6 +1446,7 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_BLK_NO_CMD23 | MMC_QUIRK_BLK_DISABLE_CMD23),
 	MMC_FIXUP("MMC32G", 0x11, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_BLK_NO_CMD23),
+      
        /*
         * On these Samsung MoviNAND parts, performing secure erase or
         * secure trim can result in unrecoverable corruption due to a

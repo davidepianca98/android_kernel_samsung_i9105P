@@ -51,6 +51,7 @@ deps_config := \
 	fs/befs/Kconfig \
 	fs/hfsplus/Kconfig \
 	fs/hfs/Kconfig \
+	fs/sdcardfs/Kconfig \
 	fs/ecryptfs/Kconfig \
 	fs/affs/Kconfig \
 	fs/adfs/Kconfig \
@@ -389,6 +390,8 @@ deps_config := \
 	drivers/char/Kconfig \
 	drivers/input/gameport/Kconfig \
 	drivers/input/serio/Kconfig \
+	drivers/input/misc/mpu6500/Kconfig \
+	drivers/input/misc/mpu6050/Kconfig \
 	drivers/input/misc/Kconfig \
 	drivers/input/touchscreen/coreriver_touchkey/Kconfig \
 	drivers/input/touchscreen/cypress_touchkey/Kconfig \
@@ -493,13 +496,6 @@ deps_config := \
 	drivers/misc/modem_if/Kconfig \
 	drivers/misc/emmc_rpmb/Kconfig \
 	drivers/misc/vc04_services/Kconfig \
-	drivers/misc/yas532/orientation/Kconfig \
-	drivers/misc/yas532/geomagnetic/Kconfig \
-	drivers/misc/yas532/accelerometer/Kconfig \
-	drivers/misc/yas532/Kconfig \
-	drivers/misc/inv_mpu/compass/Kconfig \
-	drivers/misc/inv_mpu/accel/Kconfig \
-	drivers/misc/inv_mpu/Kconfig \
 	drivers/misc/carma/Kconfig \
 	drivers/misc/lis3lv02d/Kconfig \
 	drivers/misc/ti-st/Kconfig \
@@ -509,7 +505,9 @@ deps_config := \
 	drivers/misc/c2port/Kconfig \
 	drivers/misc/Kconfig.stm \
 	drivers/misc/Kconfig \
-	drivers/sensors/core/Kconfig \
+	drivers/sensors/yas532/orientation/Kconfig \
+	drivers/sensors/yas532/geomagnetic/Kconfig \
+	drivers/sensors/yas532/Kconfig \
 	drivers/sensors/Kconfig \
 	drivers/s390/block/Kconfig \
 	drivers/block/drbd/Kconfig \

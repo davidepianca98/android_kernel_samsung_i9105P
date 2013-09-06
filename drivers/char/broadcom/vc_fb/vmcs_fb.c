@@ -72,6 +72,7 @@
 #include <linux/syscalls.h>
 
 #include <vc_mem.h>
+#include <vc_dt.h>
 
 #include "debug_sym.h"
 #include "vchiq_connected.h"
@@ -94,11 +95,6 @@
 
 /* #define VC_ROUND_UP_WH(wh)  (((wh) + 15) & ~15) */
 
-/* TODO add to linux.config!! */
-#define CONFIG_FB_VC_DEFAULT_SCREEN_WIDTH     (540)
-#define CONFIG_FB_VC_DEFAULT_SCREEN_HEIGHT    (960)
-#define CONFIG_FB_VC_NUM_FRAMES               (2)
-
 /* Default values for framebuffer creation modifiable parameters */
 #define DEFAULT_ALPHA            (255)
 #define DEFAULT_ALPHA_PER_PIXEL  (0)
@@ -106,12 +102,13 @@
 #define DEFAULT_KEEP_RESOURCE    (0)
 #define DEFAULT_SCALE            (1)
 #define DEFAULT_Z_ORDER          (-50)
+#define DEFAULT_ADJUST           (0)
 #define PROC_WRITE_BUF_SIZE      128
 
 /* How long to wait for read FB to complete before
  * timing out for no blocking call.
  */
-#define DEFAULT_READ_TO_MSEC		(20000)
+#define DEFAULT_READ_TO_MSEC     (20000)
 #define FB_IPC_DOORBELL          (0xD)
 
 struct SCRN_INFO_T {
@@ -135,6 +132,7 @@ struct SCRN_INFO_T {
 	uint32_t z_order;	/* Z-order of framebuffer */
 	uint32_t width_override;	/* Width override */
 	uint32_t height_override;	/* Height override */
+	uint32_t adjust;	/* Adjust dimensions to 16x32 factor */
 
 	/* Proc entries corresponding to the modifiable parameters */
 	struct proc_dir_entry *alpha_cfg_entry;
@@ -145,6 +143,7 @@ struct SCRN_INFO_T {
 	struct proc_dir_entry *scale_cfg_entry;
 	struct proc_dir_entry *z_order_cfg_entry;
 	struct proc_dir_entry *action_cfg_entry;
+	struct proc_dir_entry *adjust_cfg_entry;
 };
 
 struct FB_STATE_T {
@@ -532,6 +531,26 @@ static int alpha_read_proc(char *buffer,
 	return len;
 }
 
+static int adjust_read_proc(char *buffer,
+			     char **start,
+			     off_t off, int count, int *eof, void *data)
+{
+	struct SCRN_INFO_T *scrn_info = (struct SCRN_INFO_T *)data;
+	int len = 0;
+
+	(void)start;
+	(void)off;
+	(void)count;
+	(void)eof;
+
+	if (scrn_info != NULL) {
+		len += sprintf(buffer + len,
+			       "%u\n", (unsigned int)scrn_info->adjust);
+	}
+
+	return len;
+}
+
 static ssize_t vc_fb_kread(struct SCRN_INFO_T *scrn_info, char *buf,
 			   size_t count);
 static int action_write_proc(struct file *file, const char __user *buffer,
@@ -577,23 +596,29 @@ static int action_write_proc(struct file *file, const char __user *buffer,
 			kfree(buf);
 			LOG_INFO("[%s]: read %u bytes", __func__, read_size);
 		} else if (!strcmp(kbuf, "read-locked")) {
-			/* Assume we cannot get the configuration data, use some
-			 * acceptable default, then try to read.
-			 */
-			LOG_INFO("[%s]: **locked** xres: %d, yres: %d, bpp: %d",
-				 __func__,
-				 CONFIG_FB_VC_DEFAULT_SCREEN_WIDTH,
-				 CONFIG_FB_VC_DEFAULT_SCREEN_HEIGHT,
-				 (DEFAULT_BITS_PER_PIXEL >> 3));
+			uint32_t fb_width, fb_height, fb_frame;
+			if (!vc_dt_get_fb_config(&fb_width,
+					&fb_height, &fb_frame)) {
+				/* Assume we cannot get the configuration data,
+				 * use some acceptable default and try to read.
+				 */
+				LOG_INFO(
+					"[%s]: **locked** xres: %d, yres: %d, bpp: %d",
+					 __func__,
+					 fb_width,
+					 fb_height,
+					 (DEFAULT_BITS_PER_PIXEL >> 3));
 
-			count = CONFIG_FB_VC_DEFAULT_SCREEN_WIDTH *
-			    CONFIG_FB_VC_DEFAULT_SCREEN_HEIGHT *
-			    (DEFAULT_BITS_PER_PIXEL >> 3);
-			buf = kzalloc(count * sizeof(uint8_t), GFP_KERNEL);
-			read_size = vc_fb_kread(scrn_info, buf, count);
-			kfree(buf);
-			LOG_INFO("[%s]: **locked** read %u bytes",
-				 __func__, read_size);
+				count = fb_width * fb_height *
+					 (DEFAULT_BITS_PER_PIXEL >> 3);
+				buf =
+					kzalloc(count * sizeof(uint8_t),
+						GFP_KERNEL);
+				read_size = vc_fb_kread(scrn_info, buf, count);
+				kfree(buf);
+				LOG_INFO("[%s]: **locked** read %u bytes",
+					 __func__, read_size);
+			}
 		} else if (!strcmp(kbuf, "snap-take")) {
 			LOG_INFO("[%s]: take snapshot",
 				 __func__);
@@ -616,8 +641,7 @@ out:
 }
 
 static int z_order_write_proc(struct file *file,
-			      const char __user *buffer,
-			      unsigned long count, void *data)
+	const char __user *buffer, unsigned long count, void *data)
 {
 	struct SCRN_INFO_T *scrn_info = (struct SCRN_INFO_T *)data;
 	unsigned char kbuf[PROC_WRITE_BUF_SIZE + 1];
@@ -642,6 +666,8 @@ static int z_order_write_proc(struct file *file,
 		ret = kstrtou32(kbuf, 0, &scrn_info->z_order);
 		if (ret != 0)
 			scrn_info->z_order = 0;
+		/* reset - satisfies the proc write op. */
+		ret = count;
 	}
 
 	goto out;
@@ -677,6 +703,8 @@ static int scale_write_proc(struct file *file,
 		ret = kstrtou32(kbuf, 0, &scrn_info->scale);
 		if (ret == 0)
 			scrn_info->scale = !(!(scrn_info->scale));
+		/* reset - satisfies the proc write op. */
+		ret = count;
 	}
 
 	goto out;
@@ -752,6 +780,8 @@ static int keep_resource_write_proc(struct file *file,
 		if (ret == 0)
 			scrn_info->keep_resource =
 			    !(!(scrn_info->keep_resource));
+		/* reset - satisfies the proc write op. */
+		ret = count;
 	}
 
 	goto out;
@@ -786,14 +816,14 @@ static int bpp_override_write_proc(struct file *file,
 	if (scrn_info != NULL) {
 		uint32_t input = 0;
 		ret = kstrtou32(kbuf, 0, &input);
-
 		if ((ret != 0) || ((input != 0) &&
 				   (input != 16) && (input != 32))) {
 			LOG_ERR("%s: invalid bits per pixel override value",
 				__func__);
-		} else {
+		} else
 			scrn_info->bpp_override = input;
-		}
+		/* reset - satisfies the proc write op. */
+		ret = count;
 	}
 	goto out;
 
@@ -829,6 +859,8 @@ static int alpha_per_pixel_write_proc(struct file *file,
 		if (ret == 0)
 			scrn_info->alpha_per_pixel =
 			    !(!(scrn_info->alpha_per_pixel));
+		/* reset - satisfies the proc write op. */
+		ret = count;
 	}
 	goto out;
 
@@ -863,7 +895,45 @@ static int alpha_write_proc(struct file *file,
 		ret = kstrtou32(kbuf, 0, &scrn_info->alpha);
 		if ((ret != 0) || (scrn_info->alpha > 255))
 			scrn_info->alpha = 255;
+		/* reset - satisfies the proc write op. */
+		ret = count;
 	}
+	goto out;
+
+out:
+	return ret;
+}
+
+static int adjust_write_proc(struct file *file,
+	const char __user *buffer, unsigned long count, void *data)
+{
+	struct SCRN_INFO_T *scrn_info = (struct SCRN_INFO_T *)data;
+	unsigned char kbuf[PROC_WRITE_BUF_SIZE + 1];
+	int ret;
+
+	(void)file;
+
+	memset(kbuf, 0, PROC_WRITE_BUF_SIZE + 1);
+	if (count >= PROC_WRITE_BUF_SIZE)
+		count = PROC_WRITE_BUF_SIZE;
+
+	if (copy_from_user(kbuf, buffer, count) != 0) {
+		LOG_ERR("[%s]: failed to copy-from-user", __func__);
+
+		ret = -EFAULT;
+		goto out;
+	}
+	kbuf[count - 1] = 0;
+	ret = count;
+
+	if (scrn_info != NULL) {
+		ret = kstrtou32(kbuf, 0, &scrn_info->adjust);
+		if (ret != 0)
+			scrn_info->adjust = DEFAULT_ADJUST;
+		/* reset - satisfies the proc write op. */
+		ret = count;
+	}
+
 	goto out;
 
 out:
@@ -887,8 +957,14 @@ static int vc_fb_get_info(struct SCRN_INFO_T *scrn_info)
 	int ret;
 	int32_t success;
 	VC_FB_SCRN_INFO_T info;
+	uint32_t fb_width = 0, fb_height = 0, fb_frame = 0;
 
 	LOG_DBG("%s: start (scrn_info=0x%p)", __func__, scrn_info);
+
+	/* Get the (default) framebuffer configuration from the
+	 * dt-blob.
+	 */
+	vc_dt_get_fb_config(&fb_width, &fb_height, &fb_frame);
 
 	/* Get the screen info from the framebuffer service */
 	success = vc_vchi_fb_get_scrn_info(fb_state->fb_handle, scrn_info->scrn,
@@ -900,11 +976,12 @@ static int vc_fb_get_info(struct SCRN_INFO_T *scrn_info)
 		ret = -EPERM;
 		goto out;
 	} else if ((info.width == 0) || (info.height == 0)) {
-		LOG_DBG("%s: could not get info for screen %u - using defaults",
+		LOG_DBG(
+			"%s: could not get info for screen %u - using defaults",
 			__func__, scrn_info->scrn);
 
-		info.width = CONFIG_FB_VC_DEFAULT_SCREEN_WIDTH;
-		info.height = CONFIG_FB_VC_DEFAULT_SCREEN_HEIGHT;
+		info.width = fb_width;
+		info.height = fb_height;
 	}
 
 	if (info.bits_per_pixel == 0) {
@@ -926,24 +1003,25 @@ static int vc_fb_get_info(struct SCRN_INFO_T *scrn_info)
 	if (scrn_info->height_override != 0)
 		info.height = scrn_info->height_override;
 
-	LOG_DBG("%s: screen %u: %ux%u, %u bpp", __func__, scrn_info->scrn,
-		info.width, info.height, info.bits_per_pixel);
-
-	if ((info.width % 16) || (info.height % 16)) {
+	if (scrn_info->adjust &&
+			((info.width % 16) || (info.height % 16))) {
 		/* Videocore needs the dimensions to be a multiple of 16 */
 		info.width &= ~15;
 		info.height &= ~15;
 
-		LOG_DBG("%s: screen %u: adjusted to %ux%u, %u bpp", __func__,
+		LOG_INFO("%s: screen %u: adjusted to %ux%u, %u bpp", __func__,
 			scrn_info->scrn, info.width, info.height,
 			info.bits_per_pixel);
 	}
+
+	LOG_DBG("%s: screen %u: %ux%u, %u bpp", __func__, scrn_info->scrn,
+		info.width, info.height, info.bits_per_pixel);
+
 	/* Save the info into struct fb_var_screeninfo */
 	scrn_info->fb_info.var.xres = info.width;
 	scrn_info->fb_info.var.yres = info.height;
 	scrn_info->fb_info.var.xres_virtual = info.width;
-	scrn_info->fb_info.var.yres_virtual =
-	    info.height * CONFIG_FB_VC_NUM_FRAMES;
+	scrn_info->fb_info.var.yres_virtual = info.height * fb_frame;
 	scrn_info->fb_info.var.bits_per_pixel = info.bits_per_pixel;
 	scrn_info->fb_info.var.activate = FB_ACTIVATE_NOW;
 	scrn_info->fb_info.var.height = info.height;
@@ -1013,11 +1091,15 @@ static int vc_fb_open(struct fb_info *fb_info, int user)
 		alloc.width = fb_info->var.xres;
 		alloc.height = fb_info->var.yres;
 		alloc.bits_per_pixel = fb_info->var.bits_per_pixel;
-		alloc.num_frames = CONFIG_FB_VC_NUM_FRAMES;
+		alloc.num_frames =
+			fb_info->var.yres_virtual / fb_info->var.yres;
 		alloc.layer = scrn_info->z_order;
 		alloc.alpha_per_pixel = scrn_info->alpha_per_pixel;
 		alloc.default_alpha = scrn_info->alpha;
 		alloc.scale = scrn_info->scale;
+		alloc.nopad = scrn_info->adjust ? 0 : 1;
+		alloc.alloc =
+			VC_FB_ALLOC_INTERNAL_HEAP | VC_FB_ALLOC_ALLOW_FALLBACK;
 
 		LOG_INFO("%s: allocating framebuffer for screen %u", __func__,
 			 alloc.scrn);
@@ -1025,8 +1107,9 @@ static int vc_fb_open(struct fb_info *fb_info, int user)
 		    ("%s:\t%ux%u, bpp=%u, num_frames=%u, z-order=%u, scale=%u",
 		     __func__, alloc.width, alloc.height, alloc.bits_per_pixel,
 		     alloc.num_frames, alloc.layer, alloc.scale);
-		LOG_INFO("%s:\talpha_per_pixel=%u, default_alpha=%u", __func__,
-			 alloc.alpha_per_pixel, alloc.default_alpha);
+		LOG_INFO("%s:\talpha_per_pixel=%u, default_alpha=%u, nopad=%u",
+		    __func__, alloc.alpha_per_pixel, alloc.default_alpha,
+		    alloc.nopad);
 
 		/* Allocate memory for the framebuffer */
 		success =
@@ -1198,7 +1281,8 @@ static int vc_fb_check_var(struct fb_var_screeninfo *var,
 		}
 	}
 
-	if ((var->xres > fb_info->var.xres) || (var->yres > fb_info->var.yres)) {
+	if ((var->xres > fb_info->var.xres) ||
+		(var->yres > fb_info->var.yres)) {
 		LOG_INFO
 		    ("%s: request resolution %ux%u is larger than"
 		     " supported %ux%u",
@@ -1464,8 +1548,8 @@ static int vc_fb_create_per_scrn_proc_entries(struct SCRN_INFO_T *scrn_info)
 	}
 	/* Now create all the proc entries for modifiable parameters */
 	scrn_info->alpha_cfg_entry = create_proc_entry("alpha",
-						       0,
-						       scrn_info->fb_cfg_directory);
+		0,
+		scrn_info->fb_cfg_directory);
 	if (scrn_info->alpha_cfg_entry == NULL) {
 		LOG_ERR("%s: failed to create proc entry", __func__);
 
@@ -1494,8 +1578,8 @@ static int vc_fb_create_per_scrn_proc_entries(struct SCRN_INFO_T *scrn_info)
 	}
 
 	scrn_info->bpp_override_cfg_entry = create_proc_entry("bpp_override",
-							      0,
-							      scrn_info->fb_cfg_directory);
+		0,
+		scrn_info->fb_cfg_directory);
 	if (scrn_info->bpp_override_cfg_entry == NULL) {
 		LOG_ERR("%s: failed to create proc entry", __func__);
 
@@ -1553,8 +1637,8 @@ static int vc_fb_create_per_scrn_proc_entries(struct SCRN_INFO_T *scrn_info)
 	}
 
 	scrn_info->z_order_cfg_entry = create_proc_entry("z_order",
-							 0,
-							 scrn_info->fb_cfg_directory);
+		0,
+		scrn_info->fb_cfg_directory);
 	if (scrn_info->z_order_cfg_entry == NULL) {
 		LOG_ERR("%s: failed to create proc entry", __func__);
 
@@ -1567,8 +1651,8 @@ static int vc_fb_create_per_scrn_proc_entries(struct SCRN_INFO_T *scrn_info)
 	}
 
 	scrn_info->action_cfg_entry = create_proc_entry("action",
-							0,
-							scrn_info->fb_cfg_directory);
+		0,
+		scrn_info->fb_cfg_directory);
 	if (scrn_info->action_cfg_entry == NULL) {
 		LOG_ERR("%s: failed to create proc entry", __func__);
 
@@ -1580,8 +1664,25 @@ static int vc_fb_create_per_scrn_proc_entries(struct SCRN_INFO_T *scrn_info)
 		scrn_info->action_cfg_entry->write_proc = &action_write_proc;
 	}
 
+	scrn_info->adjust_cfg_entry = create_proc_entry("adjust",
+		0,
+		scrn_info->fb_cfg_directory);
+	if (scrn_info->adjust_cfg_entry == NULL) {
+		LOG_ERR("%s: failed to create proc entry", __func__);
+
+		ret = -EPERM;
+		goto err_remove_action_cfg_entry;
+	} else {
+		scrn_info->adjust_cfg_entry->data = (void *)scrn_info;
+		scrn_info->adjust_cfg_entry->read_proc = &adjust_read_proc;
+		scrn_info->adjust_cfg_entry->write_proc = &adjust_write_proc;
+	}
+
 	ret = 0;
 	goto out;
+
+err_remove_action_cfg_entry:
+	remove_proc_entry("action", scrn_info->fb_cfg_directory);
 
 err_remove_z_order_cfg_entry:
 	remove_proc_entry("z_order", scrn_info->fb_cfg_directory);
@@ -1627,6 +1728,8 @@ static int vc_fb_remove_per_scrn_proc_entries(struct SCRN_INFO_T *scrn_info)
 	remove_proc_entry("res_override", scrn_info->fb_cfg_directory);
 	remove_proc_entry("scale", scrn_info->fb_cfg_directory);
 	remove_proc_entry("z_order", scrn_info->fb_cfg_directory);
+	remove_proc_entry("action", scrn_info->fb_cfg_directory);
+	remove_proc_entry("adjust", scrn_info->fb_cfg_directory);
 
 	remove_proc_entry(fb_cfg_dir_name[scrn_info->scrn],
 			  fb_state->cfg_directory);
@@ -1723,6 +1826,7 @@ static int vc_fb_create_framebuffer(VC_FB_SCRN scrn)
 	scrn_info->keep_resource = DEFAULT_KEEP_RESOURCE;
 	scrn_info->scale = DEFAULT_SCALE;
 	scrn_info->z_order = DEFAULT_Z_ORDER;
+	scrn_info->adjust = DEFAULT_ADJUST;
 
 	/* Everything is good to go! */
 	fb_state->scrn_info[scrn] = scrn_info;

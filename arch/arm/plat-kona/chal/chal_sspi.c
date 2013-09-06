@@ -3128,13 +3128,15 @@ uint32_t chal_sspi_read_data(CHAL_HANDLE handle,
 {
 	CHAL_SSPI_HANDLE_t *pDevice = (CHAL_SSPI_HANDLE_t *) handle;
 	uint32_t tmp = size, val, width = SPI_FIFO_DATA_RWSIZE_RESERVED;
+	uint32_t ctlbase;
+	uint32_t entbase;
 
-	uint32_t ctlbase = REG_FIFORX_CTL_ADDR(fifo_id,
-					       pDevice->base +
-					       SSPIL_FIFORX_0_CONTROL_OFFSET);
-	uint32_t entbase = REG_FIFO_ENTRYRX_ADDR(fifo_id,
-						 pDevice->base +
-						 SSPIL_FIFO_ENTRY0RX_OFFSET);
+	ctlbase = REG_FIFORX_CTL_ADDR(fifo_id,
+				      pDevice->base +
+				      SSPIL_FIFORX_0_CONTROL_OFFSET);
+	entbase = REG_FIFO_ENTRYRX_ADDR(fifo_id,
+					pDevice->base +
+					SSPIL_FIFO_ENTRY0RX_OFFSET);
 
 	if (!handle || !buf || (fifo_id > SSPI_FIFO_ID_RX3)) {
 		chal_dprintf(CDBG_ERRO, "invalid argument\n");
@@ -3433,15 +3435,15 @@ CHAL_SSPI_STATUS_t chal_sspi_read_fifo(CHAL_HANDLE handle,
 				       uint32_t *data)
 {
 	CHAL_SSPI_HANDLE_t *pDevice = (CHAL_SSPI_HANDLE_t *) handle;
-
-	uint32_t entbase = REG_FIFO_ENTRYRX_ADDR(fifo_id,
-						 pDevice->base +
-						 SSPIL_FIFO_ENTRY0RX_OFFSET);
+	uint32_t entbase;
 
 	if (!handle || !data || (fifo_id > SSPI_FIFO_ID_RX3)) {
 		chal_dprintf(CDBG_ERRO, "invalid argument\n");
 		return CHAL_SSPI_STATUS_ILLEGAL_PARA;
 	}
+	entbase = REG_FIFO_ENTRYRX_ADDR(fifo_id,
+					pDevice->base +
+					SSPIL_FIFO_ENTRY0RX_OFFSET);
 	*data = CHAL_REG_READ32(entbase);
 	return CHAL_SSPI_STATUS_SUCCESS;
 
@@ -3462,15 +3464,15 @@ CHAL_SSPI_STATUS_t chal_sspi_write_fifo(CHAL_HANDLE handle,
 					uint32_t data)
 {
 	CHAL_SSPI_HANDLE_t *pDevice = (CHAL_SSPI_HANDLE_t *) handle;
-
-	uint32_t entbase = REG_FIFO_ENTRYTX_ADDR(fifo_id - SSPI_FIFO_ID_TX0,
-						 pDevice->base +
-						 SSPIL_FIFO_ENTRY0TX_OFFSET);
+	uint32_t entbase;
 
 	if (!handle || (fifo_id < SSPI_FIFO_ID_TX0)) {
 		chal_dprintf(CDBG_ERRO, "invalid argument\n");
 		return CHAL_SSPI_STATUS_ILLEGAL_PARA;
 	}
+	entbase = REG_FIFO_ENTRYTX_ADDR(fifo_id - SSPI_FIFO_ID_TX0,
+					pDevice->base +
+					SSPIL_FIFO_ENTRY0TX_OFFSET);
 	CHAL_REG_WRITE32(entbase, data);
 	return CHAL_SSPI_STATUS_SUCCESS;
 
@@ -3695,4 +3697,311 @@ CHAL_SSPI_STATUS_t chal_sspi_enable_scheduler(CHAL_HANDLE handle,
 		SSPIL_SCHEDULER_CONTROL_SCH_ENABLE_MASK);
 	CHAL_REG_WRITE32(pDevice->base + SSPIL_SCHEDULER_CONTROL_OFFSET, val);
 	return CHAL_SSPI_STATUS_SUCCESS;
+}
+
+/*
+ * ******************************************************************************
+ *
+ *  Function Name:  chal_sspi_dump_registers
+ *
+ *  Description:    Function to dump SSPI registers
+ *
+ * ******************************************************************************
+ */
+void chal_sspi_dump_registers(CHAL_HANDLE handle)
+{
+	CHAL_SSPI_HANDLE_t *pDevice = (CHAL_SSPI_HANDLE_t *) handle;
+
+	if (!handle) {
+		chal_dprintf(CDBG_ERRO, "invalid argument\n");
+		return;
+	}
+
+	chal_dprintf(CDBG_ERRO, "\nDump SSPI registers:\n");
+	chal_dprintf(CDBG_INFO, "CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "CONFIGURATION_CHECK %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_CONFIGURATION_CHECK_OFFSET));
+	chal_dprintf(CDBG_INFO, "INTERRUPT_STATUS %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_INTERRUPT_STATUS_OFFSET));
+	chal_dprintf(CDBG_INFO, "INTERRUPT_ENABLE %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_INTERRUPT_ENABLE_OFFSET));
+	chal_dprintf(CDBG_INFO, "DETAIL_INTERRUPT_STATUS %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_DETAIL_INTERRUPT_STATUS_OFFSET));
+	chal_dprintf(CDBG_INFO, "INTERRUPT_ERROR_ENABLE %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_INTERRUPT_ERROR_ENABLE_OFFSET));
+	chal_dprintf(CDBG_INFO, "SCHEDULER_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SCHEDULER_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "STATE_MACHINE_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_STATE_MACHINE_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "STATE_MACHINE_TIMEOUT %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_STATE_MACHINE_TIMEOUT_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFO_SHARING %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFO_SHARING_OFFSET));
+	chal_dprintf(CDBG_INFO, "CLKDIV %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_CLKDIV_OFFSET));
+	chal_dprintf(CDBG_INFO, "CLKGEN %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_CLKGEN_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FIFOTX_0_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_0_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_0_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_0_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_0_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_0_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_0_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_0_THRESHOLD_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FIFOTX_1_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_1_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_1_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_1_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_1_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_1_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_1_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_1_THRESHOLD_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FIFOTX_2_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_2_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_2_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_2_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_2_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_2_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_2_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_2_THRESHOLD_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FIFOTX_3_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_3_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_3_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_3_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_3_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_3_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_3_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_3_THRESHOLD_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "DMA_RX0_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_DMA_RX0_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "DMA_TX0_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_DMA_TX0_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "DMA_RX1_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_DMA_RX1_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "DMA_TX1_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_DMA_TX1_CONTROL_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FIFOTX_0_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_0_PIO_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_1_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_1_PIO_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_2_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_2_PIO_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFOTX_3_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFOTX_3_PIO_THRESHOLD_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FIFORX_0_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_0_PIO_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_1_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_1_PIO_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_2_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_2_PIO_THRESHOLD_OFFSET));
+	chal_dprintf(CDBG_INFO, "FIFORX_3_PIO_THRESHOLD %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FIFORX_3_PIO_THRESHOLD_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "PATTERN_0_SCLK %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_0_SCLK_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_0_CS %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_0_CS_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_0_TX %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_0_TX_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_0_TXOEN %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_0_TXOEN_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "PATTERN_1_SCLK %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_1_SCLK_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_1_CS %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_1_CS_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_1_TX %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_1_TX_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_1_TXOEN %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_1_TXOEN_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "PATTERN_2_SCLK %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_2_SCLK_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_2_CS %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_2_CS_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_2_TX %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_2_TX_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_2_TXOEN %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_2_TXOEN_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "PATTERN_3_SCLK %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_3_SCLK_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_3_CS %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_3_CS_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_3_TX %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_3_TX_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_3_TXOEN %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_3_TXOEN_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "TASK0_DESC_MSB %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_TASK0_DESC_MSB_OFFSET));
+	chal_dprintf(CDBG_INFO, "TASK0_DESC_LSB %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_TASK0_DESC_LSB_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "TASK1_DESC_MSB %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_TASK1_DESC_MSB_OFFSET));
+	chal_dprintf(CDBG_INFO, "TASK1_DESC_LSB %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_TASK1_DESC_LSB_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "PATTERN_0_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_0_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_1_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_1_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_2_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_2_CONTROL_OFFSET));
+	chal_dprintf(CDBG_INFO, "PATTERN_3_CONTROL %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_PATTERN_3_CONTROL_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "SEQUENCE_0 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_0_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_1 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_1_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_2 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_2_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_3 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_3_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_4 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_4_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_5 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_5_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_6 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_6_OFFSET));
+	chal_dprintf(CDBG_INFO, "SEQUENCE_7 %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_SEQUENCE_7_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FRAME0_CS_IDLE_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME0_CS_IDLE_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME0_SCLK_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME0_SCLK_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME0_TX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME0_TX_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME0_RX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME0_RX_DEF_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FRAME1_CS_IDLE_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME1_CS_IDLE_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME1_SCLK_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME1_SCLK_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME1_TX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME1_TX_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME1_RX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME1_RX_DEF_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FRAME2_CS_IDLE_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME2_CS_IDLE_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME2_SCLK_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME2_SCLK_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME2_TX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME2_TX_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME2_RX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME2_RX_DEF_OFFSET));
+
+	chal_dprintf(CDBG_INFO, "FRAME3_CS_IDLE_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME3_CS_IDLE_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME3_SCLK_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME3_SCLK_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME3_TX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME3_TX_DEF_OFFSET));
+	chal_dprintf(CDBG_INFO, "FRAME3_RX_DEF %08x\n",
+		CHAL_REG_READ32(pDevice->base +
+				SSPIL_FRAME3_RX_DEF_OFFSET));
 }

@@ -26,9 +26,14 @@
 #ifndef __PLAT_KONA_TIMER_H
 #define __PLAT_KONA_TIMER_H
 
-/* There is 5 clock cycles delay in HUB Timer by ASIC limitation.
+/*
+ * There is 5 clock cycles delay in HUB Timer by ASIC limitation. 3 ticks
+ * delay for compare value to be loaded + 2 ticks delay for compare enable to
+ * be synced to the clock domain
+ *
+ * Let's do 6 instead of 5 just to be extremely safe
  */
-#define MIN_KONA_DELTA_CLOCK     5
+#define MIN_KONA_DELTA_CLOCK     6
 
 /* On 32-bit mod timer, using large or max value 0xffffffff may trigger early
  * timer interrupt. It has to be limited to avoid timer misbehavior.
@@ -212,6 +217,20 @@ int kona_timer_stop (struct kona_timer* kt);
  * kt - Timer context to be freed.
  */
 int kona_timer_free (struct kona_timer* kt);
+
+/*
+ * kona_timer_suspend - Suspend the timer by shutting off its clock source.
+ *
+ * kt - Timer context.
+ */
+int kona_timer_suspend(struct kona_timer *kt);
+
+/*
+ * kona_timer_resume - Resume the timer by re-enabling its clock source.
+ *
+ * kt - Timer context.
+ */
+int kona_timer_resume(struct kona_timer *kt);
 
 /*
  * kona_hubtimer_get_counter - Returns the counter value of aon hub timer

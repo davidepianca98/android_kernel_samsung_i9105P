@@ -317,7 +317,7 @@ static int vc_dnfo_proc_write(struct file *file, const char __user *buffer,
 		if (vc_dnfo_scan_frac(source, field)) {
 			LOG_ERR("[%s]: echo <field> <value> > /proc/%s",
 				__func__, DRIVER_NAME);
-	}
+		}
 	} else {
 		/* Either signed or unsigned format. */
 		int value;
@@ -331,7 +331,7 @@ static int vc_dnfo_proc_write(struct file *file, const char __user *buffer,
 			/* Out of range. */
 			LOG_ERR("[%s]: attribute '%s' requires '<value> >= 0'",
 				__func__, name);
-	} else {
+		} else {
 			*field = value;
 		}
 	}

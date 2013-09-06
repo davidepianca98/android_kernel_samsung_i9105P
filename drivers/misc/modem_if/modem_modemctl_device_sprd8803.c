@@ -31,14 +31,21 @@ static int sprd_power_on_cnt=0;
 #define GPIO_UART_TX 	74
 #define GPIO_SPI_TX 		94
 
-static int configure_control_pin(bool sprd_on)
+
+static int configure_control_pin(int sprd_on)
 {
 	int ret=0;
-	char i;
+	static int sprd_status=0xff;
 	struct pin_config new_pin_config_u;
 	struct pin_config new_pin_config_s;
 
-	pr_err("%s, Congifure Pin with sprd:%d\n",__func__,sprd_on);
+	if(sprd_status==sprd_on)
+	{
+	//	pr_err("%s, return %d\n",__func__,sprd_on);
+		return 0;
+	}
+
+//	pr_err("%s, Congifure Pin with sprd:%d\n",__func__,sprd_on);
 	
 	new_pin_config_u.name = PN_UARTB2_UTXD;
 	ret = pinmux_get_pin_config(&new_pin_config_u);
@@ -95,14 +102,13 @@ static int configure_control_pin(bool sprd_on)
 			return ret;
 		}
 
-		gpio_direction_output(GPIO_UART_TX, 0);
-		gpio_direction_output(GPIO_SPI_TX, 0);
-
+		gpio_set_value(GPIO_UART_TX, 0);
+		gpio_set_value(GPIO_SPI_TX, 0);
 
 		
 	
 	}
-
+	sprd_status=sprd_on;
 
 	return ret;
 }
@@ -111,8 +117,12 @@ static int configure_control_pin(bool sprd_on)
 static int sprd8803_on(struct modem_ctl *mc)
 {
 	pr_info("[MODEM_IF] sprd8803_on()\n");
-
-	if (!mc->gpio_cp_on || !mc->gpio_pda_active) {
+#if defined(CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
+	if (!mc->gpio_cp_on || !mc->gpio_pda_active||!mc->gpio_cp_on2)
+#else
+	if (!mc->gpio_cp_on || !mc->gpio_pda_active)
+#endif
+	 {
 		pr_err("[MODEM_IF] no gpio data\n");
 		return -ENXIO;
 	}
@@ -140,6 +150,9 @@ static int sprd8803_on(struct modem_ctl *mc)
 	{
 		pr_info("[MODEM_IF] cp_on ctrl !!!\n");
 		sprd_power_on_cnt=1;
+#if defined(CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
+		gpio_set_value(mc->gpio_cp_on2, 1);
+#endif
 		gpio_set_value(mc->gpio_cp_on, 1);
 		msleep(100);
 		configure_control_pin(1);
@@ -153,14 +166,20 @@ static int sprd8803_on(struct modem_ctl *mc)
 static int sprd8803_off(struct modem_ctl *mc)
 {
 	pr_info("[MODEM_IF] %s\n", __func__);
-
-	if (!mc->gpio_cp_on) {
+#if defined(CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
+	if (!mc->gpio_cp_on||!mc->gpio_cp_on2)
+#else
+	if (!mc->gpio_cp_on)
+#endif
+ 	{
 		mif_err("no gpio data\n");
 		return -ENXIO;
 	}
-	configure_control_pin(0);
+//	configure_control_pin(0);
 	gpio_set_value(mc->gpio_cp_on, 0);
-
+#if defined(CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
+	gpio_set_value(mc->gpio_cp_on2, 0);
+#endif
 #ifdef CONFIG_SEC_DUAL_MODEM_MODE
 	gpio_set_value(mc->gpio_sim_sel, 1); // dual mode -other cp
 	gpio_set_value(mc->gpio_cp_ctrl1, 1); // dual mode -other cp
@@ -255,6 +274,12 @@ static irqreturn_t phone_active_irq_handler(int irq, void *_mc)
 		phone_state = STATE_CRASH_EXIT;
 	}
 
+	if(phone_state ==STATE_OFFLINE){
+		gpio_set_value(mc->gpio_pda_active, 0);
+		configure_control_pin(0);
+	}
+
+
 	if (mc->iod && mc->iod->modem_state_changed)
 		mc->iod->modem_state_changed(mc->iod, phone_state);
 
@@ -283,7 +308,9 @@ int sprd8803_init_modemctl_device(struct modem_ctl *mc,
 	struct platform_device *pdev;
 
 	pr_info("[MODEM_IF] %s\n", __func__);
-
+#if defined(CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
+	mc->gpio_cp_on2 = pdata->gpio_cp_on2;
+#endif
 	mc->gpio_cp_on = pdata->gpio_cp_on;
 	mc->gpio_pda_active = pdata->gpio_pda_active;
 	mc->gpio_phone_active = pdata->gpio_phone_active;

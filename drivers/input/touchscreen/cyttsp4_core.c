@@ -391,7 +391,7 @@ static ssize_t set_firm_version_show(struct device *dev,
 	get_tsp_vendor(cd, fw_latest_version);
 
 	pr_info("Cypress Last firmware version is %s\n", fw_latest_version);
-	return sprintf(buf, "%s\n", fw_latest_version);
+	return sprintf(buf, "%s", fw_latest_version);
 }
 
 static ssize_t set_firm_version_read_show(struct device *dev,
@@ -401,7 +401,10 @@ static ssize_t set_firm_version_read_show(struct device *dev,
 	struct cyttsp4_core_data *cd = dev_get_drvdata(dev);
 	char fw_version[10];
 
-	get_tsp_vendor(cd, fw_version);
+      //return sprintf(fw_version, "CY13%04X", cyttsp4_get_phone_fw_ver());
+      sprintf(fw_version, "CY%02X%04X", 
+				0x13, cyttsp4_get_phone_fw_ver());
+      //get_tsp_vendor(cd, fw_version);
 	return sprintf(buf, "%s", fw_version); /* it's connected to at_sec_handler */
 }
 
@@ -3510,9 +3513,9 @@ static int cyttsp4_core_wake_(struct cyttsp4_core_data *cd)
 			__func__);
 
 	/* Wait for heartbeat */
-	rc = cyttsp4_wait_bl_heartbeat(cd);
-	if (rc)
-		dev_err(dev, "%s: Error on waiting bl heartbeat r=%d\n", __func__, rc);
+	    rc = cyttsp4_wait_bl_heartbeat(cd);
+	    if (rc)
+		    dev_err(dev, "%s: Error on waiting bl heartbeat r=%d\n", __func__, rc);
 
 	if (mode == CY_MODE_BOOTLOADER)
 		goto exit;
@@ -3570,6 +3573,11 @@ exit:
 
 	/* Do not start watchdog in already woken state */
 	cyttsp4_start_wd_timer(cd);
+
+      if (rc) {
+        cyttsp4_queue_startup(cd);
+        rc = 0;
+      }
 
 	return rc;
 }

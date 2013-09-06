@@ -163,6 +163,9 @@ struct uart_8250_port {
 	struct clk          *clk;
 #endif
 
+#ifdef CONFIG_ARCH_KONA
+	unsigned int iir;
+#endif
 };
 
 struct irq_info {
@@ -1437,6 +1440,10 @@ receive_chars(struct uart_8250_port *up, unsigned int *status)
 	do {
 		if (likely(lsr & UART_LSR_DR))
 			ch = serial_inp(up, UART_RX);
+#ifdef CONFIG_ARCH_KONA
+		else if (up->iir & UART_IIR_RDI)
+			ch = serial_inp(up, UART_RX);
+#endif
 		else
 			/*
 			 * Intel 82571 has a Serial Over Lan device that will
@@ -1604,6 +1611,10 @@ static void serial8250_handle_port(struct uart_8250_port *up)
 
 	if (status & (UART_LSR_DR | UART_LSR_BI))
 		receive_chars(up, &status);
+#ifdef CONFIG_ARCH_KONA
+	else if (up->iir & UART_IIR_RDI)
+		receive_chars(up, &status);
+#endif
 	check_modem_status(up);
 	if (status & UART_LSR_THRE)
 		transmit_chars(up);
@@ -1616,6 +1627,9 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	struct uart_8250_port *up =
 		container_of(port, struct uart_8250_port, port);
 
+#ifdef CONFIG_ARCH_KONA
+	up->iir = iir; /* Stash a copy of iir for later */
+#endif
 	if (!(iir & UART_IIR_NO_INT)) {
 		serial8250_handle_port(up);
 		return 1;
@@ -1803,6 +1817,9 @@ static void serial8250_timeout(unsigned long data)
 	unsigned int iir;
 
 	iir = serial_in(up, UART_IIR);
+#ifdef CONFIG_ARCH_KONA
+	up->iir = iir; /* Stash a copy of iir for later */
+#endif
 	if (!(iir & UART_IIR_NO_INT))
 		serial8250_handle_port(up);
 	mod_timer(&up->timer, jiffies + uart_poll_timeout(&up->port));

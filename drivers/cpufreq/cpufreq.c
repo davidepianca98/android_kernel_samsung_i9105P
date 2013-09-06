@@ -461,7 +461,7 @@ static ssize_t store_scaling_governor(struct cpufreq_policy *policy,
              envp[0] = buf1;
              envp[1] = buf2;
              envp[2] = NULL;
-             kobject_uevent_env(cpufreq_global_kobject, KOBJ_ADD, envp);
+             kobject_uevent_env(cpufreq_global_kobject, KOBJ_ADD, envp)
 
 	if (ret)
 		return ret;

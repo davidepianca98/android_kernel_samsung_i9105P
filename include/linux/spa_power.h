@@ -149,6 +149,7 @@ struct spa_power_data
 	unsigned int charging_cur_wall;
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 	unsigned int backcharging_time;
+	unsigned int recharging_eoc;
 #endif
 	charge_timer_t charge_timer_limit;
 
@@ -230,6 +231,7 @@ struct spa_power_desc
 	struct workqueue_struct *spa_workqueue;
 	struct wake_lock spa_wakelock;
 	struct wake_lock acc_wakelock;
+	struct wake_lock batt_wakelock;
 
 	struct spa_power_data *pdata;
 
